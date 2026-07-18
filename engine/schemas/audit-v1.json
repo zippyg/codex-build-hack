@@ -30,7 +30,6 @@
           "type": "string"
         },
         "confidence": {
-          "default": 0.5,
           "maximum": 1,
           "minimum": 0,
           "title": "Confidence",
@@ -64,7 +63,6 @@
           "type": "integer"
         },
         "reason": {
-          "default": "",
           "title": "Reason",
           "type": "string"
         },
@@ -82,7 +80,6 @@
           "type": "array"
         },
         "symbol": {
-          "default": "",
           "title": "Symbol",
           "type": "string"
         }
@@ -91,9 +88,13 @@
         "callsite_id",
         "file",
         "line",
+        "symbol",
         "kind",
         "eligibility",
-        "sample_count"
+        "sample_count",
+        "confidence",
+        "reason",
+        "samples"
       ],
       "title": "CallsiteAudit",
       "type": "object"
@@ -119,12 +120,12 @@
     },
     "schema_version": {
       "const": "1",
-      "default": "1",
       "title": "Schema Version",
       "type": "string"
     }
   },
   "required": [
+    "schema_version",
     "repo_path",
     "repo_sha",
     "callsites"

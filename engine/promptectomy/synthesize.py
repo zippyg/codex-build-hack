@@ -46,12 +46,30 @@ def build_command(worktree: Worktree, schema_path: str | Path, output_path: str 
 
 
 def prompt(callsite_id: str, kind: str, *, resume: bool = False) -> str:
-    suffix = "Repair the existing train/dev failures now." if resume else "Implement the first deterministic attempt now."
-    return f"""Write engine/promptectomy/generated/{callsite_id}.py exposing run(input, params).
-This is a {kind} callsite. Use only stdlib, no filesystem, network, environment, clock, randomness, or subprocess.
-The module must finish within 100ms and pass the supplied train and dev fixtures. Holdout data does not exist here.
-{suffix}
-Return the required synthesis-result JSON after writing the file."""
+    suffix = "Some train/dev cases still fail. Read the failing cases and repair the module now." if resume else "Implement the first deterministic attempt now."
+    if kind == "structured":
+        target = (
+            "Return a Python dict with EXACTLY the same keys as response_normalized. Use None for any "
+            "field not present in the ticket text. It must equal response_normalized as canonical JSON."
+        )
+    elif kind == "classifier":
+        target = "Return the exact lowercase label string that response_normalized contains (e.g. \"billing\")."
+    else:
+        target = "Return a string."
+    return f"""Write engine/promptectomy/generated/{callsite_id}.py exposing run(input, params) -> value.
+
+The training data is in this worktree at:
+  .promptectomy/fixtures/train.jsonl  and  .promptectomy/fixtures/dev.jsonl
+Each line is a JSON object. `request_input` is the exact string your run() receives as `input`;
+`response_normalized` is the exact value your run(input, params) must return for that input. Read them.
+
+This is a {kind} callsite. {target}
+Constraints: pure and deterministic, Python stdlib only, no filesystem/network/environment/clock/
+randomness/subprocess, and finish within 100ms per call. Holdout data does not exist here.
+
+Before finishing, load every train and dev line and assert your run(request_input, request_params)
+equals response_normalized for ALL of them (100% agreement). {suffix}
+Return the required synthesis-result JSON after the file passes."""
 
 
 def _event_text(payload: object) -> tuple[str, Literal["reasoning", "code", "tool"] | None] | None:

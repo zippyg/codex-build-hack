@@ -14,12 +14,10 @@
           "type": "null"
         }
       ],
-      "default": null,
       "title": "Module Path"
     },
     "schema_version": {
       "const": "1",
-      "default": "1",
       "title": "Schema Version",
       "type": "string"
     },
@@ -33,14 +31,16 @@
       "type": "string"
     },
     "summary": {
-      "default": "",
       "title": "Summary",
       "type": "string"
     }
   },
   "required": [
+    "schema_version",
     "callsite_id",
-    "status"
+    "status",
+    "module_path",
+    "summary"
   ],
   "title": "SynthesisResultV1",
   "type": "object"

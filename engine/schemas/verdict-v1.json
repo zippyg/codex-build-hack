@@ -4,7 +4,6 @@
       "additionalProperties": false,
       "properties": {
         "event_id": {
-          "default": "",
           "title": "Event Id",
           "type": "string"
         },
@@ -18,15 +17,16 @@
           "$ref": "#/$defs/JsonValue"
         },
         "summary": {
-          "default": "",
           "title": "Summary",
           "type": "string"
         }
       },
       "required": [
+        "event_id",
         "input",
         "expected",
-        "got"
+        "got",
+        "summary"
       ],
       "title": "Diff",
       "type": "object"
@@ -46,7 +46,6 @@
           "type": "null"
         }
       ],
-      "default": null,
       "title": "Agreement"
     },
     "callsite_id": {
@@ -61,7 +60,6 @@
       "type": "array"
     },
     "holdout_n": {
-      "default": 0,
       "minimum": 0,
       "title": "Holdout N",
       "type": "integer"
@@ -75,7 +73,6 @@
           "type": "null"
         }
       ],
-      "default": null,
       "title": "Median Latency Ms"
     },
     "module_path": {
@@ -87,17 +84,14 @@
           "type": "null"
         }
       ],
-      "default": null,
       "title": "Module Path"
     },
     "reason": {
-      "default": "",
       "title": "Reason",
       "type": "string"
     },
     "schema_version": {
       "const": "1",
-      "default": "1",
       "title": "Schema Version",
       "type": "string"
     },
@@ -113,8 +107,15 @@
     }
   },
   "required": [
+    "schema_version",
     "callsite_id",
-    "status"
+    "status",
+    "reason",
+    "agreement",
+    "holdout_n",
+    "diffs",
+    "module_path",
+    "median_latency_ms"
   ],
   "title": "Verdict",
   "type": "object"
