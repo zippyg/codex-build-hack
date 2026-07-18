@@ -1,0 +1,29 @@
+[project]
+name = "promptectomy"
+version = "0.1.0"
+description = "Codex removes the LLM calls that should be code, and proves it against traffic it never saw."
+requires-python = ">=3.12"
+dependencies = [
+    "openai==2.46.0",
+    "pydantic>=2.9",
+    "typer>=0.15",
+    "deepdiff>=8.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-socket>=0.7",
+]
+
+[project.scripts]
+promptectomy = "promptectomy.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["promptectomy"]

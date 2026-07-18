@@ -23,6 +23,15 @@ service-account*.json
 .claude/agent-logs/
 .claude/settings.local.json
 
+# --- PROMPTECTOMY runtime (ledger, runs, worktrees, registry) ---
+.promptectomy/
+engine/.venv/
+engine/**/generated/*.py
+!engine/**/generated/.gitkeep
+ui/.next/
+ui/test-results/
+ui/playwright-report/
+
 # --- Node / bun / JS-TS ---
 node_modules/
 .pnp
