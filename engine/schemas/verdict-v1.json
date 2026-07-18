@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "Diff": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "default": "",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "expected": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "got": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input",
+        "expected",
+        "got"
+      ],
+      "title": "Diff",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "agreement": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agreement"
+    },
+    "callsite_id": {
+      "title": "Callsite Id",
+      "type": "string"
+    },
+    "diffs": {
+      "items": {
+        "$ref": "#/$defs/Diff"
+      },
+      "title": "Diffs",
+      "type": "array"
+    },
+    "holdout_n": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Holdout N",
+      "type": "integer"
+    },
+    "median_latency_ms": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Median Latency Ms"
+    },
+    "module_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Module Path"
+    },
+    "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "COMPILED",
+        "COMPILED_WITH_DIFFS",
+        "NOT_COMPILABLE",
+        "ERROR"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "callsite_id",
+    "status"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

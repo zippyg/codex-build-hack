@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "callsite_id": {
+      "title": "Callsite Id",
+      "type": "string"
+    },
+    "module_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Module Path"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "needs_resume",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "callsite_id",
+    "status"
+  ],
+  "title": "SynthesisResultV1",
+  "type": "object"
+}
