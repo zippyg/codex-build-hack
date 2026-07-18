@@ -2,6 +2,7 @@
 
 import { useEventStream } from "@/lib/useEventStream";
 import { TopBar } from "./TopBar";
+import { Narrator } from "./Narrator";
 import { MeterStrip } from "./MeterStrip";
 import { CallsiteWall } from "./CallsiteWall";
 import { MainStage } from "./MainStage";
@@ -24,6 +25,7 @@ export function Dashboard({
       className="flex h-screen flex-col bg-ink text-fg"
     >
       <TopBar state={state} replay={live === null} />
+      <Narrator state={state} />
       <MeterStrip state={state} />
       <div className="grid min-h-0 flex-1 grid-cols-[34%_66%]">
         <CallsiteWall state={state} />
