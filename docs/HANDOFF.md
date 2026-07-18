@@ -36,7 +36,10 @@ that makes the AI unnecessary." Built for the Codex Community Hackathon, London,
     EventSource. `lib/state.ts` - event reducer + beat derivation.
   - `fixtures/demo-run.ndjson` - the HONEST re-paced ~88s demo (real verdicts/numbers). THIS is what
     the stage plays. `fixtures/real-run.ndjson` - the raw real run it was built from.
-  - `app/page.tsx`, `components/*` - the cockpit (MeterStrip, CallsiteWall, MainStage + stages/).
+  - `app/page.tsx`, `components/*` - the cockpit: TopBar, Narrator (per-beat plain-language line),
+    MeterStrip, CallsiteWall, MainStage + stages/, DemoControls (play/pause/restart/jump-to-beat bar).
+  - `lib/useEventStream.ts` - playhead model: returns `{ state, controls }`. Controls drive play/pause/
+    restart/seekBeat over the fixture; `?until=` still does an instant deterministic seek (tests use it).
   - `tests/beats.spec.ts` - Playwright 8/8 (asserts the 6 beat states render + verdict colors).
 - `docs/` - SUBMISSION.md (pitch, demo script, Q&A, boundaries, numbers), submission-answers.md
   (pasteable form fields), CONTRACTS.md, HANDOFF.md (this), specs/, source/ (the builder guide).
@@ -72,14 +75,16 @@ Done: contracts, engine, dashboard, tests, kill-gate, full pipeline, UI-real-run
 public receipt, native render check, measured numbers. Open: #13 submit.
 
 ## What's LEFT (priority order)
-1. DASHBOARD CLARITY + DE-AI (in progress, do this by direct edits, NOT a subagent - usage is tight):
-   - CLARITY: add a plain-language NARRATOR line that changes per beat so a viewer with no context
-     understands it (script drafted in SUBMISSION/chat). This is the top fix - "value obvious in 2 min".
-   - IDENTITY: the dark+neon-green+mono look reads as generic-AI. Give it a distinctive, opinionated
-     identity (candidate direction: clean surgical/clinical-editorial, on-theme with "-ectomy").
-2. DEPLOY TO VERCEL: deploy `ui/` (Next) as a static recorded-replay so judges get a live shareable URL.
-   The engine CANNOT run on Vercel (Python + codex + worktrees); the dashboard + bundled fixture can.
-   `vercel` CLI 54.18.7 is installed and available. Deploy the FINAL (post-redesign) version.
+DONE since first handoff: dashboard CLARITY (per-beat Narrator) + INTERACTIVITY (play/pause/restart/
+jump-to-beat control bar). Playwright 8/8, screenshots in ui/screenshots/. The demo is now clickable,
+not just an auto-replay.
+1. DEPLOY TO VERCEL (in progress): deploy `ui/` (Next) as a recorded-replay so judges get a live
+   shareable URL. The engine CANNOT run on Vercel (Python + codex + worktrees); the dashboard + bundled
+   fixture can. `vercel` CLI 54.18.7 installed. The `/fixture` route reads ui/fixtures/demo-run.ndjson
+   at request time - confirm that file is bundled/readable on Vercel (move to `public/` if the route
+   cannot read it in the serverless runtime).
+2. OPTIONAL: a real Codex computer-use (cxcu) pass driving the live dashboard + clicking the controls.
+   So far verified via Playwright (real browser, 8/8) + viewing the rendered screenshots directly.
 3. SUBMIT (#13, human/day-of): get the organiser's London submission link (announced ~10:40); optional
    60-90s backup screen recording; fresh-start rehearsal; submit by 16:30 (buffer to 17:00). Paste from
    docs/submission-answers.md.
