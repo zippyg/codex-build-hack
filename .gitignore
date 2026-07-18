@@ -1,0 +1,112 @@
+# ---------------------------------------------------------------------------
+# codex-build-hack .gitignore
+# Multi-stack: no application stack chosen yet, so this covers the likely ones
+# (bun/Node/Next + uv/Python) plus secrets, agent state, OS and editor noise.
+# Trim to the real stack once it is chosen.
+# ---------------------------------------------------------------------------
+
+# --- Secrets (never commit; commit .env.example instead) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets.json
+.secrets/
+credentials.json
+service-account*.json
+
+# --- Agent OS state (local continuity, can be noisy) ---
+.agent/logs/
+.agent/artifacts/
+.claude/agent-logs/
+.claude/settings.local.json
+
+# --- Node / bun / JS-TS ---
+node_modules/
+.pnp
+.pnp.*
+bun.lockb.tmp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/versions
+
+# --- Build output / framework caches ---
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.vite/
+.cache/
+.parcel-cache/
+storybook-static/
+*.tsbuildinfo
+
+# --- Python / uv ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.uv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Test / coverage (general) ---
+coverage/
+.nyc_output/
+*.lcov
+
+# --- Logs / runtime ---
+*.log
+logs/
+pids/
+*.pid
+*.seed
+
+# --- Databases / local data ---
+*.sqlite
+*.sqlite3
+*.db
+data/local/
+tmp/
+temp/
+
+# --- Editors / IDE ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.history/
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini

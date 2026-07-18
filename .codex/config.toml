@@ -1,0 +1,4 @@
+# Codex repo config. Secrets go in env, never here.
+# [mcp_servers.example]
+# command = "npx"
+# args = ["-y", "example-mcp"]
