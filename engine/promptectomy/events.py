@@ -9,16 +9,32 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TextIO
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from .contracts import PipelineEvent
 
-_EVENT = TypeAdapter(PipelineEvent)
+
+class _RecordedLine(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    at_ms: float = Field(ge=0)
+    event: PipelineEvent
+
+
+_LINE = TypeAdapter(_RecordedLine)
 
 
 def encode(event: PipelineEvent, *, at_ms: float) -> str:
-    validated = _EVENT.validate_python(event)
-    return json.dumps({"at_ms": at_ms, "event": _EVENT.dump_python(validated, mode="json")}, separators=(",", ":"))
+    validated = _LINE.validate_python({"at_ms": at_ms, "event": event})
+    return json.dumps(_LINE.dump_python(validated, mode="json"), separators=(",", ":"))
+
+
+def decode(line: str, *, source: str | Path = "<stream>", line_number: int = 1) -> dict[str, object]:
+    try:
+        validated = _LINE.validate_json(line)
+    except ValueError as exc:
+        raise ValueError(f"invalid pipeline event at {source}:{line_number}") from exc
+    return _LINE.dump_python(validated, mode="json")
 
 
 @dataclass
@@ -37,12 +53,7 @@ def stream(path: str | Path) -> Iterator[dict[str, object]]:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
                 continue
-            try:
-                payload = json.loads(line)
-                payload["event"] = _EVENT.dump_python(_EVENT.validate_python(payload["event"]), mode="json")
-                yield payload
-            except Exception as exc:
-                raise ValueError(f"invalid pipeline event at {path}:{line_number}") from exc
+            yield decode(line, source=path, line_number=line_number)
 
 
 def emit_all(recorder: EventRecorder, events: Iterable[PipelineEvent]) -> None:

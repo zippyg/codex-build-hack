@@ -2,9 +2,20 @@
 
 Source: <https://warp-peach-ef6.notion.site/Builder-Guide-Codex-Community-Hackathon-39fbb741601b815ca33be80ba66fefd8>
 
-Captured: 18 July 2026. This is a complete Markdown transcription of the published Notion page. Typography is normalised to Markdown, while links and meaning are preserved.
+Captured: 18 July 2026. Refreshed against the live page at 16:15 BST after the FAQ and submission link were published. Typography is normalised to Markdown, while links and meaning are preserved.
 
 Attendee-facing guide for Saturday. Everything important, in one place.
+
+## Frequently asked questions
+
+- **How do I redeem the Codex credits?** Scan the QR code from a laptop or phone. Codex and API credits must be redeemed individually, with one code per person. If phone redemption fails, use a computer.
+- **Can I submit solo?** Yes, and it is encouraged.
+- **When do credits expire?** Redeem them today. They persist on the account; any expiry should be shown on the billing page.
+- **Can I have leftover codes or credits?** No.
+- **Can I submit a previously built project?** In general, no. For fairness, the core project and functionality must be created during the one-day hackathon. Existing ideas, open-source libraries, APIs, templates and general boilerplate are allowed.
+- **What is required for submission?** Project name, short description, public GitHub repository, team/contact details, and a directly uploaded working-product video.
+- **How long is the video?** The dedicated FAQ and live form both say a maximum of 90 seconds, uploaded directly. One older FAQ sentence says two minutes; the live form is the operational source of truth, so use 90 seconds.
+- **Can late arrivals join?** Anyone arriving after 12:00 lunch cannot be accepted into the event.
 
 > **Saturday 18 July 2026, 10:00-19:00 BST**
 >
@@ -14,15 +25,9 @@ Attendee-facing guide for Saturday. Everything important, in one place.
 
 ## Resources
 
-**Event:** [Luma / registration](https://luma.com/codex-hack-ldn) · [Live schedule](https://docs.google.com/spreadsheets/d/1MEX6tkobc0iQ_QRSGNpyzF9yyKrEdZlgTTWugXmoOzI/edit#gid=62437185) · [Venue map](https://www.google.com/maps/search/?api=1&query=Channel+with+Oneder%2C+22+Northdown+Street%2C+London+N1+9BG) · [OpenAI Build Week](https://openai.com/build-week/)
+**Event:** [Luma / registration](https://luma.com/codex-hack-ldn) · [London submission form](https://demo-queue-tau.vercel.app/e/codex-community-hackathon-18th-july-2026-b29005) · [Live schedule](https://docs.google.com/spreadsheets/d/1MEX6tkobc0iQ_QRSGNpyzF9yyKrEdZlgTTWugXmoOzI/edit#gid=62437185) · [Venue map](https://www.google.com/maps/search/?api=1&query=Channel+with+Oneder%2C+22+Northdown+Street%2C+London+N1+9BG) · [OpenAI Build Week](https://openai.com/build-week/)
 
 **Build with Codex:** [Overview](https://developers.openai.com/codex) · [Quickstart](https://developers.openai.com/codex/quickstart) · [Use cases](https://developers.openai.com/codex/use-cases) · [CLI](https://developers.openai.com/codex/cli) · [IDE extension](https://developers.openai.com/codex/ide) · [Codex cloud](https://developers.openai.com/codex/cloud)
-
-> **Wi-Fi access**
->
-> Name: `Channel-Guest`
->
-> Pass: `Chann3lguest!`
 
 > **Two separate submissions. Do both if you want to enter both.**
 >
@@ -54,11 +59,30 @@ Attendee-facing guide for Saturday. Everything important, in one place.
 
 > **Teams:** up to 4 people. Every team member must be individually registered and approved.
 >
-> **Build:** start something new or push an existing project further with Codex. A new project, open-source extension, developer tool or agent workflow are all in scope.
+> **Build:** for fairness, projects should be built during the hackathon and previously completed projects cannot be submitted. Existing ideas, open-source libraries, APIs, templates and general boilerplate are allowed, but the core project and functionality must be created during the event.
 >
 > **Submit:** the organisers will explain the submission flow at 10:40. Your entry must be in by **17:00**.
 >
 > **Be demo-ready:** have a working product, a clear problem/value statement and the links needed to open it quickly.
+
+### Live London form requirements
+
+The rendered submission form was inspected read-only at 16:13 BST. It requires:
+
+- one submission per team;
+- team name, maximum 80 characters;
+- presenter and primary contact, maximum 60 characters;
+- optional additional team members, one per line. The form technically accepts up to nine, but the event rule above limits teams to four;
+- project name, maximum 64 characters;
+- project description, maximum 240 characters;
+- a **public** GitHub repository URL, maximum 300 characters. The README must contain everything judges need to understand and run the project;
+- phone number and email;
+- optional category, maximum 10 characters;
+- directly uploaded MP4, MOV or WebM, maximum 90 seconds and 250 MB. The organiser stores the video for six months;
+- at least one of Twitter/X or LinkedIn;
+- confirmation that the entry is accurate and meets the event rules.
+
+After submission, the team receives a private status link. Finalists use the provided Meet link to present. There is no field for a live demo URL, so the public README must expose it prominently.
 
 ## What judges score
 

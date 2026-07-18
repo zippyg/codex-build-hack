@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import inspect
 import json
+import os
+import tempfile
 import threading
 import time
 import uuid
@@ -166,14 +168,35 @@ def _engine(config: dict[str, Any], registry_path: Path) -> Callable[[Any, dict[
     return run
 
 
-def _compiled_response(template: Any, output: Any) -> Any:
+def _compiled_response(template: Any, output: Any, model: str) -> Any:
     """Rehydrate a real SDK Response envelope while replacing its visible text."""
     from openai.types.responses.response import Response
 
-    if not isinstance(template, dict):
-        raise ValueError("compiled registry entry has no stored response envelope template")
-    envelope = json.loads(json.dumps(template))
     text = output if isinstance(output, str) else json.dumps(output, separators=(",", ":"), ensure_ascii=False)
+    if not isinstance(template, dict):
+        response_id = uuid.uuid4().hex
+        return Response.model_validate(
+            {
+                "id": f"resp_promptectomy_{response_id}",
+                "created_at": time.time(),
+                "model": model,
+                "object": "response",
+                "output": [
+                    {
+                        "id": f"msg_promptectomy_{response_id}",
+                        "content": [{"annotations": [], "logprobs": [], "text": text, "type": "output_text"}],
+                        "role": "assistant",
+                        "status": "completed",
+                        "type": "message",
+                    }
+                ],
+                "parallel_tool_calls": False,
+                "status": "completed",
+                "tool_choice": "none",
+                "tools": [],
+            }
+        )
+    envelope = json.loads(json.dumps(template))
     for item in envelope.get("output", []):
         if not isinstance(item, dict):
             continue
@@ -223,10 +246,59 @@ def _shadow_selected(callsite_id: str, request_id: str, kwargs: dict[str, Any], 
     return int(hashlib.sha256(f"{callsite_id}:{request_id}:{payload}".encode()).hexdigest(), 16) % 10_000 < int(rate * 10_000)
 
 
-def _shadow(original: Callable[..., Any], self: Responses, args: tuple[Any, ...], kwargs: dict[str, Any], ledger_path: Path, callsite_id: str, config: dict[str, Any]) -> None:
+def _disable_on_drift(registry_path: Path, callsite_id: str) -> None:
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = os.open(registry_path.with_suffix(f"{registry_path.suffix}.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+    temporary_path: Path | None = None
+    with os.fdopen(lock_fd, "r+") as lock:
+        try:
+            import fcntl
+
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            payload = json.loads(registry_path.read_text(encoding="utf-8"))
+            entries = payload.get("callsites", payload) if isinstance(payload, dict) else None
+            entry = entries.get(callsite_id) if isinstance(entries, dict) else None
+            if not isinstance(entry, dict) or not entry.get("enabled"):
+                return
+            entry["enabled"] = False
+            entry["disabled_reason"] = "shadow_output_drift"
+            entry["disabled_at"] = datetime.now(UTC).isoformat()
+            with tempfile.NamedTemporaryFile(
+                "w",
+                dir=registry_path.parent,
+                encoding="utf-8",
+                prefix=f".{registry_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                json.dump(payload, temporary, indent=2, sort_keys=True)
+                temporary.write("\n")
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, registry_path)
+            temporary_path = None
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+
+def _shadow(
+    original: Callable[..., Any],
+    self: Responses,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    ledger_path: Path,
+    registry_path: Path,
+    callsite_id: str,
+    config: dict[str, Any],
+    compiled_normalized: Any,
+) -> None:
     started = time.perf_counter()
     try:
         response = original(self, *args, **kwargs)
+        if _normalized(response, str(config.get("kind", ""))) != compiled_normalized:
+            _disable_on_drift(registry_path, callsite_id)
         _record(ledger_path, callsite_id, "shadow", kwargs, response, (time.perf_counter() - started) * 1000, config)
     except Exception as exc:
         _record(ledger_path, callsite_id, "shadow", kwargs, None, (time.perf_counter() - started) * 1000, config, exc)
@@ -244,13 +316,23 @@ def _wrapped(self: Responses, *args: Any, **kwargs: Any) -> Any:
     try:
         if config.get("enabled"):
             compiled = _engine(config, registry_path)(kwargs.get("input"), redact({key: _json_value(value) for key, value in kwargs.items() if key != "input"}))
-            response = _compiled_response(config.get("response_template"), compiled)
+            response = _compiled_response(config.get("response_template"), compiled, str(kwargs.get("model", "unknown")))
             elapsed_ms = (time.perf_counter() - started) * 1000
             _record(ledger_path, callsite_id, "compiled", kwargs, response, elapsed_ms, config)
             if _shadow_selected(callsite_id, uuid.uuid4().hex, kwargs, float(config.get("shadow_rate", 0.01))):
                 threading.Thread(
                     target=_shadow,
-                    args=(_original_create, self, args, dict(kwargs), ledger_path, callsite_id, config),
+                    args=(
+                        _original_create,
+                        self,
+                        args,
+                        dict(kwargs),
+                        ledger_path,
+                        registry_path,
+                        callsite_id,
+                        config,
+                        _normalized(response, str(config.get("kind", ""))),
+                    ),
                     daemon=True,
                 ).start()
             return response
@@ -269,3 +351,14 @@ def install(repo_root: str | Path, ledger_path: str | Path, registry_path: str |
     if _original_create is None:
         _original_create = Responses.create
         Responses.create = _wrapped
+
+
+def uninstall() -> None:
+    """Restore the SDK method and clear all shim process state."""
+    global _original_create, _config
+    if _original_create is not None and Responses.create is _wrapped:
+        Responses.create = _original_create
+    _original_create = None
+    _config = None
+    _tag_id_cache.clear()
+    _ast_ordinal_cache.clear()

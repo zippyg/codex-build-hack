@@ -61,7 +61,7 @@ test("beat 4: NOT_COMPILABLE renders violet KEEP MODEL, never red", async ({ pag
   await expect(verdict).toHaveCSS("color", VIOLET);
 });
 
-test("beat 5: hot swap crashes the meter to ~0ms and freezes cost", async ({ page }) => {
+test("beat 5: verified replay crashes the meter to ~0ms and freezes cost", async ({ page }) => {
   await goto(page, 60000);
   await expect(page.locator("main")).toHaveAttribute("data-beat", "5");
   await expect(page.getByTestId("stage-swap")).toBeVisible();
@@ -77,11 +77,15 @@ test("beat 5: hot swap crashes the meter to ~0ms and freezes cost", async ({ pag
   await page.screenshot({ path: "screenshots/after-swap.png", fullPage: false });
 });
 
-test("beat 6: shadow guard diagram and honest closing stats", async ({ page }) => {
+test("beat 6: shadow guard and honest closing stats", async ({ page }) => {
   await goto(page, 74000);
   await expect(page.locator("main")).toHaveAttribute("data-beat", "6");
   await expect(page.getByTestId("stage-guard")).toBeVisible();
-  await expect(page.getByTestId("guard-diagram")).toBeVisible();
+  const guard = page.getByTestId("guard-diagram");
+  await expect(guard).toBeVisible();
+  await expect(guard).toContainText("OUTPUTS COMPARED");
+  await expect(guard).toContainText("AUTO DISABLE");
+  await expect(guard).toContainText("routes the callsite back to the model");
   const stats = page.getByTestId("closing-stats");
   await expect(stats).toContainText("2");
   await expect(stats).toContainText("KEPT");

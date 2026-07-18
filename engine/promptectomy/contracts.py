@@ -14,7 +14,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
+
+
+CALLSITE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+CallsiteId = Annotated[str, StringConstraints(pattern=CALLSITE_ID_PATTERN)]
 
 
 class Closed(BaseModel):
@@ -38,7 +42,7 @@ class LedgerEventV1(Closed):
     event_id: str
     recorded_at: str
     repo_sha: str
-    callsite_id: str
+    callsite_id: CallsiteId
     mode: Literal["original", "compiled", "shadow"] = "original"
     api: Literal["responses.create", "chat.completions.create"] = "responses.create"
     model: str
@@ -65,7 +69,7 @@ class AuditSample(Closed):
 
 
 class CallsiteAudit(Closed):
-    callsite_id: str
+    callsite_id: CallsiteId
     file: str
     line: int = Field(ge=1)
     symbol: str = ""
@@ -99,7 +103,7 @@ class Diff(Closed):
 
 class Verdict(Closed):
     schema_version: Literal["1"] = "1"
-    callsite_id: str
+    callsite_id: CallsiteId
     status: VerdictStatus
     reason: str = ""
     agreement: float | None = Field(default=None, ge=0, le=1)
@@ -120,7 +124,7 @@ class ScanEvent(Closed):
 
 class TrafficEvent(Closed):
     type: Literal["traffic"] = "traffic"
-    callsite_id: str
+    callsite_id: CallsiteId
     latency_ms: float
     cost_usd: float
     source: CostSource
@@ -128,21 +132,21 @@ class TrafficEvent(Closed):
 
 class CallsiteStatusEvent(Closed):
     type: Literal["callsiteStatus"] = "callsiteStatus"
-    callsite_id: str
+    callsite_id: CallsiteId
     status: Literal["queued", "synthesizing", "replaying", "iterating", "done"]
     round: int | None = None
 
 
 class SynthTokenEvent(Closed):
     type: Literal["synthToken"] = "synthToken"
-    callsite_id: str
+    callsite_id: CallsiteId
     text: str
     kind: Literal["reasoning", "code", "tool"] | None = None
 
 
 class ReplayEvent(Closed):
     type: Literal["replay"] = "replay"
-    callsite_id: str
+    callsite_id: CallsiteId
     passed: int
     total: int
 
@@ -160,7 +164,7 @@ class SwapSample(Closed):
 
 class SwapEvent(Closed):
     type: Literal["swap"] = "swap"
-    callsite_id: str
+    callsite_id: CallsiteId
     before_ms: float
     after_ms: float
     before_cost: float

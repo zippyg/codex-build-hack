@@ -12,9 +12,9 @@ the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 20
 ## Repo layout
 - `engine/` - Python 3.12 (uv). The tool.
   - `promptectomy/contracts.py` - FROZEN Pydantic contracts (ledger, audit, verdict, PipelineEvent).
-  - `promptectomy/shim.py` - monkeypatches `Responses.create`; records to the ledger; can load a
-    registry-enabled engine when a captured Response envelope exists; samples 1% original-model calls
-    without automatic comparison or drift handling. Callsite-id resolution is cached.
+  - `promptectomy/shim.py` - monkeypatches synchronous `Responses.create`; records to the ledger; can
+    return a local SDK Response without a captured envelope; samples original-model calls, compares
+    normalized outputs, and atomically disables a replacement on drift. Callsite-id resolution is cached.
   - `promptectomy/ledger.py` - JSONL ledger, key-based secret redaction.
   - `promptectomy/scan.py` - Codex audit (`codex exec --output-schema`) + a static tag fallback.
   - `promptectomy/synthesize.py` - builds the `codex exec` synthesis call in a worktree; parses --json.
@@ -26,11 +26,12 @@ the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 20
     module is imported. Wired into replay.load_engine and shim._engine (+ path confinement).
   - `promptectomy/verify.py` - parent-owned sealed-holdout verifier (runs once), emits the Verdict.
   - `promptectomy/schemas.py` - generates OpenAI-strict `--output-schema` JSON from the contracts.
-  - `promptectomy/cli.py` - Typer: `run`, `scan`, `accept`, `disable`.
+  - `promptectomy/cli.py` - Typer: `run`, `scan`, `doctor`, `serve`, `accept`, `disable`.
+  - `promptectomy/server.py` - localhost FastAPI state and SSE bridge for persisted run events.
   - `promptectomy/generated/*.py` - the modules CODEX WROTE (committed as evidence).
   - `demo/triager/pipeline.py` - the demo app (3 tagged callsites). `traffic.py` + `capture.py` build
     a keyless synthetic ledger with text-derivable ground truth.
-  - `tests/test_engine.py` - 7 pytest (scoring, split no-leakage, replay, ledger redaction, guard).
+  - `tests/` - 28 pytest covering the engine, packaging, security, shim and live bridge.
 - `ui/` - Next.js (bun). The dashboard.
   - `lib/contracts.ts` - FROZEN Zod mirror of the PipelineEvent wire shape.
   - `lib/useEventStream.ts` - plays a fixture NDJSON with at_ms pacing (`?speed=`, `?until=`) OR a live
@@ -41,7 +42,7 @@ the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 20
     MeterStrip, CallsiteWall, MainStage + stages/, DemoControls (play/pause/restart/jump-to-beat bar).
   - `lib/useEventStream.ts` - playhead model: returns `{ state, controls }`. Controls drive play/pause/
     restart/seekBeat over the fixture; `?until=` still does an instant deterministic seek (tests use it).
-  - `tests/beats.spec.ts` - Playwright 8/8 (asserts the 6 beat states render + verdict colors).
+  - `tests/` - Playwright 9/9, including all 6 beats and the live SSE contract.
 - `docs/` - SUBMISSION.md (pitch, demo script, Q&A, boundaries, numbers), submission-answers.md
   (pasteable form fields), CONTRACTS.md, HANDOFF.md (this), specs/, source/ (the builder guide).
 - `.agent/` - plans (DECISION-promptectomy.md, BUILD-PLAN.md, MASTER-PLAN.md), logs, memory, receipts.
@@ -53,8 +54,9 @@ the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 20
 cd engine && uv sync
 uv run python -m demo.triager.capture 240     # keyless synthetic ledger -> .promptectomy/ledger.jsonl
 uv run promptectomy run .. --events jsonl     # scan -> synthesize in worktrees -> sealed-holdout verify (needs codex CLI logged in)
-uv run promptectomy scan <any-repo>           # audit-only: find LLM callsites in any repo
-uv run pytest -q                              # 7 green
+uv run promptectomy scan <path-or-public-url> # audit-only: find LLM callsites
+uv run promptectomy serve ..                  # localhost report API after a run
+uv run pytest -q                              # 28 green
 # dashboard
 cd ui && bun install && bun dev               # http://localhost:4319 (auto-plays fixtures/demo-run.ndjson)
 ```
@@ -77,12 +79,12 @@ public receipt, native render check, measured numbers. Open: #13 submit.
 
 ## What's LEFT (priority order)
 DONE since first handoff: dashboard CLARITY (per-beat Narrator) + INTERACTIVITY (play/pause/restart/
-jump-to-beat control bar). Playwright 8/8, screenshots in ui/screenshots/. The demo is now clickable,
+jump-to-beat control bar). Playwright 9/9, screenshots in ui/screenshots/. The demo is now clickable,
 not just an auto-replay.
 1. DONE: the recorded-replay dashboard is live at https://promptectomy.vercel.app. The engine does
    not run on Vercel; the deployment serves the UI and bundled verified fixture.
-2. OPTIONAL: a real Codex computer-use (cxcu) pass driving the live dashboard + clicking the controls.
-   So far verified via Playwright (real browser, 8/8) + viewing the rendered screenshots directly.
+2. DONE: headless Chrome verified the live API-to-dashboard flow and the recorded controls. Playwright
+   has 9/9 tests, and the final rendered frame was inspected directly.
 3. SUBMIT (#13, human/day-of): get the organiser's London submission link (announced ~10:40); optional
    60-90s backup screen recording; fresh-start rehearsal; submit by 16:30 (buffer to 17:00). Paste from
    docs/submission-answers.md.
@@ -91,9 +93,9 @@ not just an auto-replay.
 - Generated code runs in-process (statically guarded by guard.py); production = out-of-process sandbox + rlimits.
 - Agreement = preservation of recorded MODEL behaviour, not objective correctness.
 - Traffic is synthetic-but-realistic (keyless); real capture uses the shim with an API key.
-- Live shim hot-swap needs a captured real Response envelope; the demo shows the swap via the recording.
-- There is no packaged arbitrary-repo runner, TUI, GitHub import, or CLI-to-dashboard bridge yet. The
-  intended product loop is local CLI plus capture, followed by the dashboard as the completed-run report.
+- Audit-only scanning is packaged for local checkouts and public Git URLs. Compilation still requires
+  captured traffic and the supported synchronous OpenAI Responses adapter.
+- The local CLI-to-dashboard bridge is implemented. There is terminal progress but no full-screen TUI.
 - Both compiled callsites are 100% (no diffs), so the demo shows clean COMPILED, not a forced diff beat.
 
 ## Usage / fleet notes

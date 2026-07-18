@@ -9,8 +9,8 @@ const LINES: Record<DashState["stage"], string> = {
   stream: "For each one, Codex writes real code and tests it against recorded traffic the model never saw.",
   diffs: "Codex reproduces the model on held-out traffic. Every disagreement is shown; nothing is hidden.",
   judgment: "The empathetic reply has no deterministic answer, so Codex keeps it as a model. It knows the difference.",
-  swap: "Same inputs, identical outputs. Latency falls from ~900ms to near zero. Cost per call becomes $0.",
-  guard: "Two calls are now code, one still earns its tokens. Codex wrote the code that made the AI unnecessary.",
+  swap: "In the verified replay, identical outputs cut compiled-call latency from ~900ms to near zero.",
+  guard: "Two replacements passed sealed holdouts. Shadow checks compare normalized outputs and disable a replacement if it drifts.",
 };
 
 export function Narrator({ state }: { state: DashState }) {

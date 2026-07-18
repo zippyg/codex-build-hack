@@ -1,93 +1,204 @@
 # PROMPTECTOMY
 
-**Live demo (recorded replay, clickable): https://promptectomy.vercel.app**
+**Codex finds the LLM calls that should be code, writes deterministic replacements, and proves them against recorded traffic it never saw. Calls that still need a model stay on the model.**
 
+[Open the live interactive demo](https://promptectomy.vercel.app)
 
-**Point Codex at your app. It finds the LLM calls that should be code, writes the deterministic
-replacement, and proves it works by replaying traffic the model never saw. The calls it can't
-compile, it keeps.**
+The public site replays a verified engine run. It does not execute a repository on Vercel.
 
-> Codex turned two prompts into code, proved them against traffic it never saw, and kept the third
-> because it still earned its tokens.
+Built from a new repository during the Codex Community Hackathon in London on 18 July 2026.
 
-Every app shipped since 2023 has LLM calls doing jobs a parser or a classifier should do. Teams
-prototype with a model because it is fast, then never go back and harden it. They pay the token tax,
-the latency, and the nondeterminism forever. PROMPTECTOMY is the going-back, as an agent.
+## The result in 30 seconds
 
-## What it does
+PROMPTECTOMY turned two recurring model calls into deterministic Python and refused to replace the third:
 
-1. The prototype shim can record OpenAI Responses calls (input, output, latency, cost) to a local
-   ledger. This recorded traffic becomes an executable spec. Turnkey installation into another app
-   is not packaged yet.
-2. `promptectomy run` scans the repo for LLM callsites and, for each candidate, launches Codex in an
-   isolated git worktree to synthesize a pure, deterministic replacement.
-3. The recorded traffic is split train / dev / holdout (60 / 20 / 20). Codex iterates against train
-   and dev. It never sees the holdout.
-4. A parent verifier runs the holdout once and issues a verdict:
-   - COMPILED: agreement on every held-out case.
-   - COMPILED_WITH_DIFFS: high agreement, every disagreement shown as a receipt.
-   - NOT_COMPILABLE: freeform generation with no deterministic equivalent. This stays a model.
-5. Compiled callsites can be enabled through the shim registry when a captured Response envelope is
-   available. The current 1% shadow path records original-model calls, but automatic comparison,
-   disabling on drift, and re-opening synthesis are not implemented yet.
+| Callsite | Verdict | Sealed holdout | Latency |
+| --- | --- | ---: | ---: |
+| `extract_ticket_facts` | COMPILED | 52/52 | about 900 ms to 0.006 ms |
+| `route_ticket` | COMPILED | 60/60 | about 900 ms to 0.0005 ms |
+| `draft_empathetic_reply` | KEEP MODEL | Freeform generation | unchanged |
 
-The result: per-callsite cost and latency collapse toward zero, whole-pipeline cost drops by a
-measured percentage, and the one call that genuinely needs a model still uses one.
+Whole-pipeline model cost fell **44.79 percent**. It did not fall to zero because the freeform reply still earned its tokens.
 
-## Why it's honest (not a magic trick)
+As a negative control, the scanner audited `microsoft/markitdown`, found three genuine vision/LLM callsites, and kept all three. PROMPTECTOMY is deliberately not a regex that deletes every model call.
 
-- Agreement measures preservation of the recorded model's behaviour, not objective correctness.
-- The holdout is sealed: Codex cannot see it, and it runs exactly once. No iterating to a green number.
-- We claim per-callsite cost toward zero and a measured whole-pipeline reduction, never "the bill went
-  to zero."
-- Every disagreement is shown, not hidden.
+## Why this matters
 
-## How Codex is central
+Teams use a model to ship extraction and classification quickly, then never revisit it. Low-entropy calls remain slow, costly, nondeterministic, and difficult to test even when their accumulated traffic has already specified the behavior.
 
-Codex is the compiler and the surgeon, not a chat box:
-- It audits the repository under a JSON output schema to find candidate callsites.
-- It writes each deterministic replacement in an isolated git worktree.
-- It repairs its own code against the train/dev tests, iterating to green.
-- It produces a committed code artifact with a diff and a saved activity trace.
-- A verifier Codex cannot game then grades that artifact against traffic Codex never saw.
+PROMPTECTOMY turns that traffic into an executable specification:
+
+1. Record the call input, normalized output, latency, and estimated cost in a local ledger.
+2. Ask Codex to audit the code and identify low-entropy candidates.
+3. Split traffic into train, dev, and holdout buckets by canonical request hash.
+4. Give Codex only train and dev fixtures in an isolated Git worktree.
+5. Let Codex write and repair a deterministic replacement.
+6. Have the parent process grade the untouched holdout and issue the verdict.
+7. Persist the receipts as an event stream that the dashboard can replay or follow live.
+
+Agreement means preservation of the recorded model behavior. It is not a claim that the recorded model was objective ground truth.
+
+## Why Codex is central
+
+Codex is the compiler and the surgeon, not a chat box bolted onto the UI.
+
+- It audits the target repository under a strict JSON output schema.
+- It receives the executable specification as train and dev fixtures.
+- It writes each replacement inside an isolated worktree.
+- It repairs its own implementation against those visible fixtures.
+- It never receives the holdout used for the demonstrated verdict.
+
+Codex also built this project during the event. The Git history begins at 11:17 BST and records the contract freeze, engine build, kill gate, public-repository scan, dashboard, and verification work.
+
+## Try the event demo
+
+Prerequisites: Python 3.12, `uv`, `bun`, Git, and an authenticated Codex CLI.
+
+```bash
+git clone https://github.com/zippyg/codex-build-hack.git
+cd codex-build-hack/engine
+uv sync --frozen
+uv run pytest -q
+
+# Create the keyless synthetic traffic used by the event demo.
+uv run python -m demo.triager.capture 240
+
+# Audit, synthesize in isolated worktrees, verify, and save events.
+uv run promptectomy run .. --events human
+```
+
+The run writes:
+
+```text
+.promptectomy/run/audit.json
+.promptectomy/run/events.ndjson
+.promptectomy/registry.json
+engine/promptectomy/generated/*.py
+```
+
+## Scan another repository
+
+Audit a local checkout:
+
+```bash
+cd engine
+uv run promptectomy scan /path/to/repository --out /tmp/promptectomy-audit.json
+```
+
+Audit a public Git URL through an isolated shallow clone:
+
+```bash
+uv run promptectomy scan https://github.com/microsoft/markitdown --out /tmp/markitdown-audit.json
+```
+
+`scan` is audit-only. Full compilation still requires captured traffic and a supported Python/OpenAI adapter. The CLI now fails explicitly when those prerequisites are absent rather than reporting a misleading zero-work success.
+
+## Open a live local report
+
+After a run, start the event API:
+
+```bash
+cd engine
+uv run promptectomy serve ..
+```
+
+In another terminal, start the dashboard:
+
+```bash
+cd ui
+bun install --frozen-lockfile
+bun dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:4319/?live=http://127.0.0.1:4320/events
+```
+
+The same dashboard can play the frozen event fixture for a reliable 90-second judging video or consume the local SSE stream from an actual run.
+
+## CLI
+
+```text
+promptectomy scan <path-or-public-git-url>  audit LLM callsites
+promptectomy run <local-checkout>           compile captured candidates
+promptectomy doctor <local-checkout>        show missing prerequisites
+promptectomy serve <local-checkout>         expose run state and SSE
+promptectomy accept <callsite>              enable an accepted replacement
+promptectomy disable <callsite>             route back to the model
+```
+
+`run --events human` is the terminal progress view. There is no separate full-screen TUI in this hackathon build.
 
 ## Architecture
 
-- Engine: Python 3.12 (uv). Shim, ledger, scanner, worktree synthesis, replay, scoring, verifier,
-  Typer CLI. Emits a `PipelineEvent` NDJSON stream.
-- Dashboard: Next.js (bun). A cockpit that renders latency/cost meters, the replay wall, the Codex
-  activity stream, verdicts, and replacement registration from the same NDJSON contract.
-- Contracts frozen in `engine/promptectomy/contracts.py` (Pydantic) and `ui/lib/contracts.ts` (Zod).
-
-## Current prototype boundary
-
-The deployed site is a real renderer of the engine's `PipelineEvent` stream, but the public Vercel
-deployment replays a frozen verified run. It does not run Codex or accept a repository. The scanner
-can inspect any local checkout, while the full compile-and-verify command currently assumes this
-repository's demo layout and recorded ledger. There is no TUI, GitHub import flow, or bundled
-CLI-to-dashboard server yet.
-
-The intended product loop is: install the local CLI and capture shim, point it at a local checkout
-(cloning an online repository first), run synthesis and sealed verification, then open the dashboard
-as the report for that run. Wiring and packaging that end-to-end loop is the next engineering step.
-
-## Run this prototype
-
-```bash
-# engine: install, capture traffic, then compile + verify
-cd engine && uv sync
-uv run python -m demo.triager.capture 240     # keyless synthetic ledger (or run your own app under the shim)
-uv run promptectomy run .. --events jsonl     # scan -> synthesize in worktrees -> sealed-holdout verify
-uv run promptectomy scan <any-repo>           # audit-only: find LLM callsites in any repo (no traffic)
-
-# dashboard (plays the recorded run)
-cd ui && bun install && bun dev               # http://localhost:4319
+```text
+target code + captured ledger
+            |
+        Codex audit
+            |
+ canonical hash split
+      /     |      \
+  train    dev   sealed holdout
+      \     /
+   Codex worktree
+          |
+ generated pure function
+          |
+   parent replay verdict
+          |
+ registry + NDJSON event log
+          |
+ local SSE API -> Next.js report
 ```
 
-## Status
+### Engine
 
-Built at the Codex Community Hackathon, London, 18 July 2026. On a real run: `extract_ticket_facts`
-and `route_ticket` both COMPILED at 100% agreement on sealed holdouts (52 and 60 cases) that Codex
-never saw, latency ~900ms -> ~0.006ms, whole-pipeline cost -44.8%; the freeform reply was correctly
-kept as a model. The scanner was also run on microsoft/markitdown and found its 3 vision/LLM callsites,
-correctly keeping all three. Generated modules, receipts, and the full story are in docs/SUBMISSION.md.
+Python 3.12 with `uv`: capture shim, append-only ledger, Codex scanner, Git worktree synthesis, replay, scoring, verifier, registry, Typer CLI, and local FastAPI report bridge.
+
+### Dashboard
+
+Next.js with `bun`: request wall, cost and latency meters, Codex activity, verdict receipts, replacement state, recorded replay controls, and live SSE mode.
+
+### Contracts
+
+Pydantic models in `engine/promptectomy/contracts.py` and matching Zod schemas in `ui/lib/contracts.ts` define the wire protocol.
+
+## Honest prototype boundary
+
+This is a hackathon prototype, not a production traffic optimizer.
+
+- The public Vercel deployment is a recorded verified replay, not a hosted engine.
+- General source auditing works for local checkouts and public Git URLs. General compilation does not yet work without captured traffic and a supported adapter.
+- Capture coverage is intentionally narrow.
+- The demonstrated holdout is absent from the synthesis worktree, but one-time-use state is process-local rather than durable across separate CLI invocations.
+- Generated code must be treated as untrusted. The production design requires out-of-process execution, an allowlisted environment, resource limits, artifact hash binding, and explicit acceptance.
+- Do not use the current hot-swap path on private repositories, real customer traffic, or production systems without completing the security plan.
+
+## Repository layout
+
+```text
+engine/                 Python package, CLI, demo, and tests
+ui/                     Next.js dashboard and Playwright tests
+docs/                   contracts, submission pack, and source material
+.agent/                 local plans, receipts, audits, logs, and handoff state
+```
+
+## Verify
+
+```bash
+cd engine
+uv sync --frozen
+uv run pytest -q
+
+cd ../ui
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
+bunx playwright test
+```
+
+## Event submission boundary
+
+The London form requires a public GitHub repository and a directly uploaded working-product video of at most 90 seconds. Publishing the repository and submitting the form are deliberate human actions. This repository contains no automation that submits an entry.

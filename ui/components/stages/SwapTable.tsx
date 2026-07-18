@@ -10,7 +10,7 @@ export function SwapTable({ state }: { state: DashState }) {
   if (!swap) return null;
   return (
     <div className="flex min-h-0 flex-1 flex-col justify-center px-4">
-      <div className="font-mono text-[13px] tracking-[0.3em] text-muted">HOT SWAP</div>
+      <div className="font-mono text-[13px] tracking-[0.3em] text-muted">VERIFIED REPLAY</div>
       <div className="mt-1 mb-5 flex items-baseline gap-4 font-mono">
         <span className="text-[clamp(20px,3vh,28px)] text-fg">{swap.callsiteId}</span>
         <span className="tnum text-[clamp(20px,3vh,28px)] text-muted">
@@ -63,7 +63,7 @@ export function SwapTable({ state }: { state: DashState }) {
       </div>
       <div className="mt-4 font-sans text-[clamp(17px,2.4vh,22px)] text-fg">
         Same inputs, byte-identical outputs.{" "}
-        <span className="text-muted">The model is out of the hot path.</span>
+        <span className="text-muted">This is the measured replacement result, replayed here.</span>
       </div>
     </div>
   );

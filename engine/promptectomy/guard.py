@@ -18,6 +18,7 @@ _FORBIDDEN_MODULES = frozenset({
     "builtins", "io", "tempfile", "glob", "resource", "signal", "gc", "inspect", "webbrowser",
 })
 _FORBIDDEN_CALLS = frozenset({"eval", "exec", "compile", "open", "__import__", "input", "globals", "vars", "getattr"})
+_FORBIDDEN_NAMES = (_FORBIDDEN_CALLS - {"input"}) | {"__builtins__"}
 _FORBIDDEN_ATTRS = frozenset({"system", "popen", "spawn", "spawnl", "spawnv", "fork", "call", "run", "Popen"})
 
 
@@ -41,5 +42,9 @@ def assert_pure(module_path: str | Path) -> None:
                 raise ImpureEngine(f"{path.name} imports from forbidden module {node.module!r}")
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _FORBIDDEN_CALLS:
             raise ImpureEngine(f"{path.name} calls forbidden builtin {node.func.id!r}")
-        elif isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_ATTRS:
+        elif isinstance(node, ast.Name) and node.id in _FORBIDDEN_NAMES:
+            raise ImpureEngine(f"{path.name} references forbidden builtin {node.id!r}")
+        elif isinstance(node, ast.Attribute) and (
+            node.attr in _FORBIDDEN_ATTRS or node.attr.startswith("__") and node.attr.endswith("__")
+        ):
             raise ImpureEngine(f"{path.name} uses forbidden attribute {node.attr!r}")

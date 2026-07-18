@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "AuditSample": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "input_preview": {
+          "title": "Input Preview",
+          "type": "string"
+        },
+        "output_preview": {
+          "title": "Output Preview",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "input_preview",
+        "output_preview"
+      ],
+      "title": "AuditSample",
+      "type": "object"
+    },
+    "CallsiteAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "callsite_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Callsite Id",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "eligibility": {
+          "enum": [
+            "candidate",
+            "keep_model",
+            "unsupported"
+          ],
+          "title": "Eligibility",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "structured",
+            "classifier",
+            "freeform"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "sample_count": {
+          "minimum": 0,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/AuditSample"
+          },
+          "maxItems": 3,
+          "title": "Samples",
+          "type": "array"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "callsite_id",
+        "file",
+        "line",
+        "symbol",
+        "kind",
+        "eligibility",
+        "sample_count",
+        "confidence",
+        "reason",
+        "samples"
+      ],
+      "title": "CallsiteAudit",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "callsites": {
+      "items": {
+        "$ref": "#/$defs/CallsiteAudit"
+      },
+      "title": "Callsites",
+      "type": "array"
+    },
+    "repo_path": {
+      "title": "Repo Path",
+      "type": "string"
+    },
+    "repo_sha": {
+      "title": "Repo Sha",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "repo_path",
+    "repo_sha",
+    "callsites"
+  ],
+  "title": "AuditReport",
+  "type": "object"
+}

@@ -25,5 +25,8 @@ promptectomy = "promptectomy.cli:app"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+artifacts = ["promptectomy/schema_assets/*.json"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["promptectomy"]

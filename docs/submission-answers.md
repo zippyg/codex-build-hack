@@ -1,49 +1,125 @@
-# Pasteable submission answers (fill the form the moment the link is up)
+# London submission form pack
 
-Repo: https://github.com/zippyg/codex-build-hack (private; add judges, or flip to public at submit).
-LIVE DEMO (public, shareable): https://promptectomy.vercel.app  (auto-plays; use the bottom bar to
-play/pause and jump to any beat). Local: `cd ui && bun install && bun dev` then http://localhost:4319.
+Source checked live: 2026-07-18 16:13 BST.
 
-## Project name
-PROMPTECTOMY
+Submission form: <https://demo-queue-tau.vercel.app/e/codex-community-hackathon-18th-july-2026-b29005>
 
-## Tagline (one line)
-Codex removes the LLM calls that should be code, proves it against traffic the model never saw, and keeps the ones that still need a model.
+Deadline: 17:00 BST sharp.
 
-## Elevator pitch (2-3 sentences)
-Every app shipped since 2023 has LLM calls doing a parser's or a classifier's job: fast to prototype, never hardened, paying the token tax, the latency, and the nondeterminism forever. PROMPTECTOMY is the going-back, as an agent: Codex audits a repo, synthesizes deterministic replacements for low-entropy callsites, proves equivalence by replaying recorded traffic on a sealed holdout it never saw, and refuses the callsites that genuinely need a model. The first AI tool whose lifetime token count goes negative.
+Status: **DO NOT SUBMIT FROM THIS FILE. Required human details and repository publication remain.**
 
-## The problem
-Teams reach for a model because it is the fastest way to ship, then never revisit it. Low-entropy callsites (extract these fields, classify this ticket) stay as model calls: slow, costly, nondeterministic, and impossible to test. Going back by hand is tedious and risky, so nobody does it.
+## Required blockers
 
-## What it does
-1. A prototype shim records OpenAI Responses calls (input, output, latency, cost) to a local ledger. That recorded traffic becomes an executable spec. Turnkey installation into another app is not packaged yet.
-2. `promptectomy run` scans the repo for LLM callsites (Codex audits it under a strict output schema).
-3. For each candidate, Codex synthesizes a pure, deterministic replacement in an isolated git worktree.
-4. Traffic is split train/dev/holdout (60/20/20). Codex iterates against train+dev and NEVER sees the holdout. A parent verifier runs the sealed holdout once and issues a verdict: COMPILED / COMPILED_WITH_DIFFS (every disagreement shown) / NOT_COMPILABLE (freeform, stays a model).
-5. Compiled callsites are written into a registry-backed replacement path. The prototype records 1% shadow calls, but automatic comparison, drift disabling, and synthesis reopening remain future work.
+1. `https://github.com/zippyg/codex-build-hack` is currently **PRIVATE**. The form requires a public repository.
 
-## How we used Codex (this is the point)
-Codex is the compiler and the surgeon, not a chat box. It audits the repository, writes each replacement in an isolated worktree, repairs its own code against the train/dev tests, and produces a committed code artifact with a diff and a saved activity trace. A verifier Codex cannot game then grades that artifact against traffic Codex never saw. We also built the project itself with Codex (terra for the engine) plus a Fable-model UI lane, orchestrated in parallel from a frozen contract.
+Also confirm the phone number, email, and at least one Twitter/X or LinkedIn profile. Do not guess them.
 
-## Results (real run, frozen as the demo dataset)
-- extract_ticket_facts: COMPILED, 100% agreement on a 52-case sealed holdout, ~900ms -> 0.006ms.
-- route_ticket: COMPILED, 100% on a 60-case sealed holdout (a negation-aware rule classifier, not a toy regex).
-- draft_empathetic_reply: NOT_COMPILABLE, correctly kept as a model.
-- Whole-pipeline cost -44.8% (honest: the kept freeform call is why it is not higher).
-- Ran the scanner on microsoft/markitdown: found its 3 vision/LLM callsites and correctly kept all three.
+## Exact form-ready values
 
-## How we built it
-Python 3.12 (uv) engine: SDK shim, ledger, scanner, worktree synthesis via `codex exec`, replay, scoring, sealed-holdout verifier, Typer CLI. Next.js (bun) dashboard: a live cockpit reading an NDJSON event stream. Contracts frozen in Pydantic + Zod. An AST purity guard enforces that generated code is stdlib-only with no IO before it is ever imported.
+### Team name, maximum 80
 
-## Challenges
-Making the proof ungameable (train/dev/holdout by canonical-request hash, holdout run once), getting Codex's `--output-schema` OpenAI-strict-valid so synthesis did not 400, and pacing a real ~108s run into an honest 90-second demo.
+`PROMPTECTOMY`
 
-## What's next
-Package the real local product loop: install the shim, point the CLI at a checkout, serve its event stream to the dashboard, and open the finished run as a report. Then add automatic shadow comparison, out-of-process sandboxing with rlimits, streaming and async callsite support, real production-traffic capture, and a shared registry of verified replacements.
+### Other team members
 
-## Honest boundaries (state them; they are strengths)
-Agreement measures preservation of the recorded model's behaviour, not objective correctness. Generated code currently runs in-process (statically guarded); production would sandbox it out-of-process. Demo traffic is synthetic-but-realistic (keyless); real capture uses the shim with an API key. The public dashboard is a recorded replay, not a hosted repository runner.
+Leave blank if solo. The live guide explicitly encourages solo submissions. Otherwise list only registered and approved teammates, one per line, with no more than four total team members.
 
-## Try it
-See README.md "Run it". The dashboard replays the real recorded run deterministically, so the demo cannot stall.
+### Presenter and primary contact, maximum 60
+
+`Zain Mughal`
+
+### Project name, maximum 64
+
+`PROMPTECTOMY`
+
+### Project description, maximum 240
+
+232 characters:
+
+> PROMPTECTOMY uses Codex to find low-entropy LLM calls, write deterministic replacements, and verify them against unseen recorded traffic. The demo compiled two calls at 100% holdout agreement and kept the freeform call on the model.
+
+### Public GitHub repository
+
+`https://github.com/zippyg/codex-build-hack`
+
+Do not use this value until GitHub confirms the repository is public. It was created during the event at 11:17 BST, which the Git history and GitHub creation timestamp prove.
+
+### Phone number
+
+`NEEDS ZAIN`
+
+### Email
+
+`NEEDS ZAIN`
+
+### Category, optional, maximum 10
+
+`devtools`
+
+### Demo video
+
+Primary local upload: `ui/output/submission/promptectomy-demo-elevenlabs.webm`
+
+Verified locally: WebM, 82.52 seconds, 800x450 VP8 video, normalized ElevenLabs British voiceover in Opus, 4.6 MB, working product, no slides. The silent source remains at `ui/output/submission/promptectomy-demo-clean.webm`. The form stores the uploaded file for six months.
+
+### Twitter/X or LinkedIn
+
+`NEEDS ZAIN`
+
+At least one is required.
+
+## README-facing pitch
+
+### Tagline
+
+Codex removes the LLM calls that should be code, proves the replacements against traffic it never saw, and keeps the calls that still need a model.
+
+### What genuinely works
+
+1. A prototype shim can record synchronous, non-streaming OpenAI Responses calls to a local ledger.
+2. In the event demo, Codex audits tagged callsites, receives train/dev fixtures in isolated Git worktrees, and writes deterministic Python replacements.
+3. A parent process verifies each replacement against a holdout that was not staged into the synthesis worktree.
+4. The demonstrated run compiled two low-entropy callsites at 100% holdout agreement and kept the freeform reply on the model.
+5. The dashboard can replay that verified run or consume a local run's validated SSE event stream.
+6. The supported shim compares sampled compiled and original outputs, then atomically disables a replacement on normalized drift.
+
+### Results from the frozen event run
+
+- `extract_ticket_facts`: COMPILED, 52/52 holdout cases, about 900 ms to 0.006 ms.
+- `route_ticket`: COMPILED, 60/60 holdout cases, about 900 ms to 0.0005 ms.
+- `draft_empathetic_reply`: NOT_COMPILABLE, correctly kept on the model.
+- Whole-pipeline cost reduction: 44.79 percent.
+- A scan of `microsoft/markitdown` found three vision/LLM callsites and kept all three.
+
+### Honest boundary
+
+The public dashboard is a recorded replay, not a hosted repository runner. Audit-only scanning works from an installed wheel against local checkouts and public Git URLs. General compilation still requires captured traffic and the supported synchronous OpenAI Responses adapter. There is no full-screen TUI or production sandbox. Generated code currently runs in-process and must not be used with untrusted repositories or real traffic.
+
+## Judge Q&A
+
+### Is the result a hardcoded animation?
+
+The dashboard is a deterministic replay, but its evidence comes from a real engine run. Codex created two Python modules in isolated worktrees, and the parent process graded them on holdout fixtures that were not available during synthesis. The replay makes the 90-second video reliable; it does not fabricate the receipts.
+
+### Is this a strawman?
+
+The product targets only low-entropy extraction and classification callsites. It deliberately kept the freeform reply and all three multimodal callsites found in `microsoft/markitdown`. Agreement proves preservation of recorded model behaviour, not objective correctness.
+
+### How is Codex central?
+
+Codex is both the build tool and the prototype compiler. The repository was created during the event. In the product loop, Codex audits the target code, reads only train/dev fixtures, and writes each deterministic replacement in an isolated worktree. The parent verifier, not Codex, issues the holdout verdict.
+
+### Why remove OpenAI calls at an OpenAI event?
+
+The point is better allocation of inference. Spend powerful inference once on engineering, then reserve recurring model calls for tasks where generation is still valuable. The freeform call remains on OpenAI.
+
+## Before Zain submits manually
+
+- [ ] Make the GitHub repository public and verify it in a logged-out browser.
+- [ ] Ensure the latest honest README and dashboard changes are committed and pushed.
+- [x] An ElevenLabs-narrated upload-ready video exists at 82.52 seconds and 4.6 MB.
+- [ ] Watch the uploaded file end to end before submission.
+- [ ] Fill phone, email, and at least one social profile.
+- [ ] Confirm team membership and registration.
+- [ ] Open the public repo and live demo in a private browser window.
+- [ ] Submit once and save the private status link.

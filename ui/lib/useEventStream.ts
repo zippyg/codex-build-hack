@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PipelineEvent, RecordedLine } from "./contracts";
+import { RecordedLine } from "./contracts";
 import { initialState, reduce, type Beat, type DashState } from "./state";
 
 export interface StreamOptions {
@@ -67,14 +67,20 @@ export function useEventStream({
   const maxAt = useRef(0);
   const head = useRef(0);
 
-  // Live SSE: same wire shape, no player controls.
+  // Live SSE carries the same recorded envelope as the persisted NDJSON file.
   useEffect(() => {
     if (!live) return;
+    setState(initialState);
     const es = new EventSource(live);
     es.onmessage = (msg) => {
-      const parsed = PipelineEvent.safeParse(JSON.parse(msg.data));
-      if (parsed.success) setState((s) => reduce(s, parsed.data));
-      else console.error("contract violation on live stream", parsed.error.issues);
+      const parsed = RecordedLine.safeParse(JSON.parse(msg.data));
+      if (!parsed.success) {
+        console.error("contract violation on live stream", parsed.error.issues);
+        return;
+      }
+      setReady(true);
+      setState((s) => reduce(s, parsed.data.event));
+      if (parsed.data.event.type === "done") es.close();
     };
     return () => es.close();
   }, [live]);

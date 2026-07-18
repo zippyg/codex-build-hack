@@ -1,73 +1,101 @@
-# Submission pack
+# London submission readiness
 
-## Logistics (CONFIRM ON THE DAY)
-- [ ] The exact London submission flow/link (announced ~10:40). THIS IS THE ONLY EXTERNAL BLOCKER.
-- [ ] Team name + every member individually registered/approved.
-- [ ] Repo link (private, add judges; or a clean public mirror if allowed).
-- [ ] Submit by 16:30, buffer to 17:00. Do not code in the final window.
+Live sources checked at 16:15 BST on 18 July 2026:
 
-## One-liner
-Point Codex at your app; it turns the LLM calls that should be code into tested deterministic code,
-proves them against traffic the model never saw, and keeps the ones that still need a model.
+- form: <https://demo-queue-tau.vercel.app/e/codex-community-hackathon-18th-july-2026-b29005>
+- guide: <https://warp-peach-ef6.notion.site/Builder-Guide-Codex-Community-Hackathon-39fbb741601b815ca33be80ba66fefd8>
 
-## 90-second demo script (recorded replay of the verified run)
-- 0:00-0:12  Establish the problem and baseline: 720 recorded calls across three callsites, about
-             900ms per replaceable model call.
-- 0:12-0:27  Show the three audited callsites and explain that the ledger is the executable spec.
-- 0:27-0:48  Show the saved real Codex activity trace: isolated worktrees and generated modules.
-- 0:48-1:08  Show the sealed-holdout receipts: extract 52/52 COMPILED, route 60/60 COMPILED, and
-             freeform reply NOT_COMPILABLE. Codex never saw those holdout inputs.
-- 1:08-1:23  Show measured replay results: compiled latency about 0.006ms and 0.0005ms, with
-             whole-pipeline cost down 44.79%. State that this screen is a recorded run.
-- 1:23-1:30  Close: "Codex turned two prompts into code, proved them against traffic it never saw,
-             and kept the third because it still earned its tokens."
+Deadline: **17:00 BST sharp**.
 
-Do not claim that the public site runs Codex, performs a live SDK hot-swap, or automatically compares
-shadow outputs. Those are product-direction screens around a recorded verified engine run.
+Instruction: **do not submit automatically**.
 
-## Judge Q&A (rehearse)
-Isn't this a strawman? We only compile low-entropy callsites. Codex never saw the sealed holdout,
-every disagreement is exposed, and a real public-repo vision call was correctly refused. This proves
-behavioural preservation against recorded traffic, not that the model was ground truth.
+## Current hard blockers
 
-How is Codex central? Codex audits the repo, writes each replacement in an isolated worktree, repairs
-it against train/dev tests, and produces a committed artifact. A verifier it cannot game then grades
-that artifact against traffic Codex never saw.
+- [ ] GitHub repository is public. It was confirmed PRIVATE at 16:16 BST.
+- [x] An ElevenLabs-narrated WebM exists at `ui/output/submission/promptectomy-demo-elevenlabs.webm`: 82.52 seconds, 4.6 MB, 800x450 VP8 video plus normalized Opus audio.
+- [ ] Zain supplies phone, email, and at least one Twitter/X or LinkedIn profile.
+- [ ] Zain confirms solo/team details and every teammate is registered and approved.
 
-Deleting OpenAI calls at an OpenAI event, good look? We spend powerful inference once on engineering,
-then reserve recurring inference for the callsites where it earns its keep. The freeform reply still
-uses OpenAI. Better allocation of inference, not anti-model theatre.
+The form has no live-demo URL field. The public README must keep the demo link at the top.
 
-## Public receipt (kills the strawman) - DONE
-- Ran `promptectomy scan` on microsoft/markitdown @ e144e0a (public repo, no traffic). Codex found 3
-  real LLM callsites and correctly marked ALL THREE keep_model: image-caption (_llm_caption.py),
-  image-description (_image_converter.py), and vision OCR (_ocr_service.py). The tool refused to
-  compile code it did not write, because those are genuinely multimodal. Receipt in
-  .agent/artifacts/receipts/markitdown-audit.json (+ meta with the SHA).
-- Judgment demonstrated on someone else's code. Offer a live scan of any public repo in Q&A.
+## Form values
 
-## Reliability checklist
-- [ ] Cached synthetic ledger; saved real Codex event stream + generated commit + diff.
-- [ ] Pre-warm python/next/import. Recorded real Codex trace for the demo; holdout replay + meters live.
-- [ ] Full backup screen recording. Static verdict fixtures. Live model never on the 90s critical path.
+Use the exact field pack in `docs/submission-answers.md`. Its project description is 232 of the allowed 240 characters and `devtools` fits the 10-character category limit.
 
-## Measured numbers (from the frozen demo run 0269a16, 720 recorded calls)
-- Recorded calls: 720 (240 tickets x 3 callsites), synthetic-but-realistic (keyless).
-- extract_ticket_facts: COMPILED, 100% agreement on a 52-case SEALED holdout, ~900ms -> 0.006ms.
-- route_ticket: COMPILED, 100% agreement on a 60-case SEALED holdout, ~900ms -> 0.0005ms.
-- draft_empathetic_reply: NOT_COMPILABLE (freeform, correctly kept as a model call).
-- Whole-pipeline cost reduction: 44.79% (the kept freeform call is why it is not higher; honest).
-- Real capture via the shim needs an OPENAI_API_KEY; the demo uses synthetic recorded traffic by design.
-- The generated modules (regex parser + negation-aware rule classifier) are committed as evidence.
+## 90-second recorded demo
 
-## Security posture (we threat-modeled our own tool; full audit in .claude/agent-logs/security-audit-20260718.md)
-- API keys never reach the ledger: the shim drops extra_headers, never captures the client key, and
-  redacts Authorization/api_key/secret/password/bearer. Verified by test.
-- The Codex synthesis child runs with OPENAI_API_KEY scrubbed from its environment.
-- The sealed holdout is never staged into the synthesis worktree; Codex cannot see it, and it runs once.
-- Generated code is gated by a static purity guard (AST): forbidden imports (os/sys/subprocess/socket/
-  importlib/...) and IO/eval builtins are rejected BEFORE the module is imported. Enforced, not prompted.
-- The compiled module path is confined to the generated directory (no traversal / arbitrary load).
-- Subprocess calls are argv-form (no shell); semgrep clean; no unsafe deserialization.
-- Stated boundary (say it in the pitch): generated code still executes in-process; production would run
-  it in an out-of-process sandbox with rlimits. Demo uses synthetic data, single user, no real PII.
+Use the working dashboard, not slides. The verified narrated file is `ui/output/submission/promptectomy-demo-elevenlabs.webm`. The silent source is `ui/output/submission/promptectomy-demo-clean.webm`. The public site may lag behind the honest local copy.
+
+### Voiceover and screen plan
+
+- **0:00-0:08**: Open the dashboard. "Every app has model calls doing a parser's job. PROMPTECTOMY uses Codex to turn those calls into tested deterministic code."
+- **0:08-0:20**: Show the request feed and baseline meters. "This verified run recorded 720 calls across extraction, routing, and freeform reply."
+- **0:20-0:32**: Jump to Scan. "Codex audits the repository. It marks low-entropy extraction and classification as candidates and keeps freeform generation on the model."
+- **0:32-0:47**: Jump to Compile. "Codex receives only train and dev fixtures in an isolated worktree, writes the replacement, and repairs it against visible cases."
+- **0:47-1:03**: Jump to Judge. "The parent process now grades holdout traffic that was never staged into Codex's worktree: 52 of 52 and 60 of 60. The freeform reply is correctly refused."
+- **1:03-1:18**: Jump to Swap. "Verified replay drops the two replaceable calls from about 900 milliseconds to microseconds and cuts whole-pipeline model cost by 44.79 percent."
+- **1:18-1:26**: Jump to Guard. "Sampled shadow calls compare normalized outputs and atomically disable a replacement on drift. Out-of-process sandboxing is still required for production."
+- **1:26-1:30**: Close. "Codex turned two prompts into code, proved them against traffic it never saw, and kept the third because it still earned its tokens."
+
+### Recording checklist
+
+- [ ] Capture 1920x1080 or 1440x900 with readable browser zoom.
+- [ ] Show the actual interactive dashboard and controls.
+- [ ] Do not show terminal secrets, notifications, unrelated tabs, or slides.
+- [ ] Keep the final encoded duration below 90.0 seconds, not exactly on the boundary.
+- [ ] Watch the exported file with sound from start to finish.
+- [ ] Verify the file type and size before opening the form.
+
+## Two-minute finalist version
+
+If shortlisted, finalists get two minutes plus up to one minute of questions.
+
+1. Problem and thesis, 15 seconds.
+2. Baseline request feed and candidate audit, 25 seconds.
+3. Codex worktree synthesis, 30 seconds.
+4. Sealed-holdout verdicts, 25 seconds.
+5. Cost and latency result, 15 seconds.
+6. `microsoft/markitdown` negative control and honest boundary, 10 seconds.
+
+## Judge Q&A
+
+### Is the dashboard hardcoded?
+
+It is a deterministic replay of a real engine event stream so the short video cannot stall. The engine produced the audit, worktree synthesis activity, generated modules, replay scores, and verdicts. The public site does not execute Codex or accept a repository.
+
+### Did Codex see the answers?
+
+Codex received train and dev fixtures only. The demonstrated holdout was not copied into its worktree. The current one-use guard is process-local, so the accurate claim is that the parent graded it once in the demonstrated run, not that the data can never be replayed again.
+
+### Why did you keep one model call?
+
+The freeform reply has open-ended generative value. PROMPTECTOMY targets low-entropy extraction and classification, not every use of AI. The external `microsoft/markitdown` scan also kept all three multimodal callsites.
+
+### Why is Codex central?
+
+Codex built the event project and acts as its prototype compiler. It audits target code, reads the visible executable specification, writes deterministic replacements in isolated Git worktrees, and repairs them against train/dev fixtures. The parent process owns the final demonstrated verdict.
+
+### Is it safe for production?
+
+No. The current event build is a single-user prototype using synthetic traffic. Production requires out-of-process generated-code execution, an allowlisted environment, artifact hash binding, durable holdout receipts, wider SDK coverage, and explicit activation controls.
+
+## Verified receipts
+
+- 720 synthetic-but-realistic ledger events, 240 tickets across three callsites.
+- `extract_ticket_facts`: COMPILED, 52/52 demonstrated holdout cases.
+- `route_ticket`: COMPILED, 60/60 demonstrated holdout cases.
+- `draft_empathetic_reply`: NOT_COMPILABLE and kept on the model.
+- Whole-pipeline cost reduction: 44.79 percent.
+- `microsoft/markitdown` at `e144e0a`: three LLM/vision callsites found, all kept.
+- Repository created on GitHub at 10:17 UTC during the event; first commit at 11:17 BST.
+
+## Final manual sequence
+
+1. Finish and verify the local changes.
+2. Commit and push the honest implementation and README.
+3. Deliberately make the repository public.
+4. Verify README, clone command, demo link, and repository visibility in a logged-out browser.
+5. Record or select the final video and verify duration, sound, and size.
+6. Enter the form fields manually.
+7. Review every value before submission.
+8. Submit once, then save the private status link.

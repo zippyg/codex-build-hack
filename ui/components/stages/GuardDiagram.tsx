@@ -4,9 +4,9 @@ import { motion } from "motion/react";
 import type { DashState } from "@/lib/state";
 
 const NODES = [
-  { title: "1% SHADOW SAMPLE", body: "one request in a hundred still hits the model" },
-  { title: "CI COMPARISON", body: "compiled output diffed against the model, every run" },
-  { title: "DRIFT RE-OPENS", body: "any disagreement re-opens the callsite for synthesis" },
+  { title: "1% SAMPLE RECORDED", body: "the prototype records original-model calls in the background" },
+  { title: "OUTPUTS COMPARED", body: "normalized model and compiled outputs are checked for drift" },
+  { title: "AUTO DISABLE", body: "a mismatch atomically routes the callsite back to the model" },
 ];
 
 export function GuardDiagram({ state }: { state: DashState }) {

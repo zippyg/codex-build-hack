@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "Diff": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "expected": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "got": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "input",
+        "expected",
+        "got",
+        "summary"
+      ],
+      "title": "Diff",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "agreement": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Agreement"
+    },
+    "callsite_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Callsite Id",
+      "type": "string"
+    },
+    "diffs": {
+      "items": {
+        "$ref": "#/$defs/Diff"
+      },
+      "title": "Diffs",
+      "type": "array"
+    },
+    "holdout_n": {
+      "minimum": 0,
+      "title": "Holdout N",
+      "type": "integer"
+    },
+    "median_latency_ms": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Median Latency Ms"
+    },
+    "module_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Module Path"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "COMPILED",
+        "COMPILED_WITH_DIFFS",
+        "NOT_COMPILABLE",
+        "ERROR"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "callsite_id",
+    "status",
+    "reason",
+    "agreement",
+    "holdout_n",
+    "diffs",
+    "module_path",
+    "median_latency_ms"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}
