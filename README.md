@@ -1,5 +1,8 @@
 # PROMPTECTOMY
 
+**Live demo (recorded replay, clickable): https://ui-cyan-eight.vercel.app**
+
+
 **Point Codex at your app. It finds the LLM calls that should be code, writes the deterministic
 replacement, and proves it works by replaying traffic the model never saw. The calls it can't
 compile, it keeps.**

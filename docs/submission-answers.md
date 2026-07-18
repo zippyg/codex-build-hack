@@ -1,7 +1,8 @@
 # Pasteable submission answers (fill the form the moment the link is up)
 
 Repo: https://github.com/zippyg/codex-build-hack (private; add judges, or flip to public at submit).
-Live demo: `cd ui && bun install && bun dev` then http://localhost:4319 (auto-plays the recorded run).
+LIVE DEMO (public, shareable): https://ui-cyan-eight.vercel.app  (auto-plays; use the bottom bar to
+play/pause and jump to any beat). Local: `cd ui && bun install && bun dev` then http://localhost:4319.
 
 ## Project name
 PROMPTECTOMY
