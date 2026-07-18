@@ -13,7 +13,7 @@ const PILL: Record<Stage, { label: string; cls: string }> = {
   guard: { label: "GUARDED", cls: "border-go/50 text-go" },
 };
 
-export function TopBar({ state }: { state: DashState }) {
+export function TopBar({ state, replay }: { state: DashState; replay: boolean }) {
   const pill = PILL[state.stage];
   return (
     <header className="flex h-[6vh] min-h-11 shrink-0 items-center gap-5 border-b border-hairline px-6">
@@ -22,6 +22,14 @@ export function TopBar({ state }: { state: DashState }) {
       </span>
       <span className="font-mono text-[14px] text-muted">~/demo/triager</span>
       <span className="flex-1" />
+      {replay && (
+        <span
+          data-testid="replay-pill"
+          className="rounded-full border border-hairline px-3 py-0.5 font-mono text-[11px] tracking-[0.22em] text-muted/70"
+        >
+          REPLAY
+        </span>
+      )}
       <span
         data-testid="run-status"
         className={cn(

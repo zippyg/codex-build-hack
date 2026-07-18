@@ -13,7 +13,7 @@ export function Judgment({ state }: { state: DashState }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
         data-testid="judgment-badge"
-        className="rounded-lg border-2 border-keep bg-keep/10 px-8 py-3 font-mono text-[clamp(24px,4vh,40px)] font-semibold tracking-[0.2em] text-keep"
+        className="rounded-lg border-2 border-keep bg-keep/10 px-10 py-4 font-mono text-[clamp(30px,5vh,54px)] font-semibold tracking-[0.2em] text-keep shadow-[0_0_70px_rgba(139,92,246,0.18)]"
       >
         KEEP MODEL
       </motion.div>

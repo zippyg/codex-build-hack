@@ -29,7 +29,7 @@ function VerdictBadge({ cs }: { cs: CallsiteState }) {
       data-testid={`verdict-${v.callsite_id}`}
       data-status={v.status}
       className={cn(
-        "inline-block rounded border px-3 py-0.5 font-mono text-[15px] font-semibold tracking-[0.14em]",
+        "inline-block rounded border px-3 py-1 font-mono text-[16px] font-bold tracking-[0.14em]",
         style,
       )}
     >

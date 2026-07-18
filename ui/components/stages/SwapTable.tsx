@@ -53,7 +53,7 @@ export function SwapTable({ state }: { state: DashState }) {
                 initial={{ scale: 1.35, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.2, delay: 0.3 + i * 0.22, ease: "easeOut" }}
-                className={`text-right text-[13px] font-semibold tracking-[0.14em] ${identical ? "text-go" : "text-warm"}`}
+                className={`text-right text-[16px] font-bold tracking-[0.14em] ${identical ? "text-go" : "text-warm"}`}
               >
                 {identical ? "IDENTICAL" : "DIFFERS"}
               </motion.span>
@@ -61,8 +61,9 @@ export function SwapTable({ state }: { state: DashState }) {
           );
         })}
       </div>
-      <div className="mt-4 font-sans text-[clamp(16px,2.2vh,20px)] text-muted">
-        Same inputs, byte-identical outputs. The model is out of the hot path.
+      <div className="mt-4 font-sans text-[clamp(17px,2.4vh,22px)] text-fg">
+        Same inputs, byte-identical outputs.{" "}
+        <span className="text-muted">The model is out of the hot path.</span>
       </div>
     </div>
   );

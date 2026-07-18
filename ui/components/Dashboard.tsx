@@ -23,7 +23,7 @@ export function Dashboard({
       data-beat={state.beat}
       className="flex h-screen flex-col bg-ink text-fg"
     >
-      <TopBar state={state} />
+      <TopBar state={state} replay={live === null} />
       <MeterStrip state={state} />
       <div className="grid min-h-0 flex-1 grid-cols-[34%_66%]">
         <CallsiteWall state={state} />

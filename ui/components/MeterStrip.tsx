@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate } from "motion";
+import { motion } from "motion/react";
 import { p50, type DashState, type TrafficSample } from "@/lib/state";
 import { cn } from "@/lib/utils";
 
@@ -123,26 +124,29 @@ export function MeterStrip({ state }: { state: DashState }) {
           </span>
         </div>
         <div>
-          <div className="font-mono text-[13px] tracking-[0.3em] text-muted">TODAY</div>
-          <div className="relative inline-block">
-            <span
-              data-testid="cum-cost"
-              className={cn(
-                "tnum font-mono text-[clamp(22px,4vh,40px)] leading-tight",
-                state.frozenCost !== null ? "text-muted/30" : "text-fg",
-              )}
-            >
-              {usd(cumulative, 2)}
-            </span>
+          <div className="flex h-6 items-center gap-3 font-mono text-[13px] tracking-[0.3em] text-muted">
+            <span>TODAY</span>
             {state.frozenCost !== null && (
-              <span
+              <motion.span
                 data-testid="frozen-stamp"
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded border-2 border-go/70 bg-ink/60 px-2.5 py-0.5 font-mono text-[13px] font-bold tracking-[0.24em] text-go whitespace-nowrap"
+                initial={{ opacity: 0, scale: 1.5, rotate: 0 }}
+                animate={{ opacity: 1, scale: 1, rotate: -4 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="rounded border-2 border-go/80 px-2 py-px font-mono text-[12px] font-bold tracking-[0.24em] text-go whitespace-nowrap"
               >
                 FROZEN
-              </span>
+              </motion.span>
             )}
           </div>
+          <span
+            data-testid="cum-cost"
+            className={cn(
+              "tnum font-mono text-[clamp(22px,4vh,40px)] leading-tight",
+              state.frozenCost !== null ? "text-muted" : "text-fg",
+            )}
+          >
+            {usd(cumulative, 2)}
+          </span>
         </div>
       </div>
     </section>
