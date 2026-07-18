@@ -53,7 +53,7 @@ function beatEnds(lines: Line[]): Record<number, number> {
 
 export function useEventStream({
   live = null,
-  fixture = "/fixture",
+  fixture = "/demo-run.ndjson",
   speed = 1,
   until = null,
 }: StreamOptions): { state: DashState; controls: DemoControls } {
