@@ -1,6 +1,6 @@
 # PROMPTECTOMY
 
-**Live demo (recorded replay, clickable): https://ui-cyan-eight.vercel.app**
+**Live demo (recorded replay, clickable): https://promptectomy.vercel.app**
 
 
 **Point Codex at your app. It finds the LLM calls that should be code, writes the deterministic
@@ -16,8 +16,9 @@ the latency, and the nondeterminism forever. PROMPTECTOMY is the going-back, as 
 
 ## What it does
 
-1. A one-line shim records every real LLM call your app makes (input, output, latency, cost) to a
-   local ledger. This recorded traffic becomes an executable spec.
+1. The prototype shim can record OpenAI Responses calls (input, output, latency, cost) to a local
+   ledger. This recorded traffic becomes an executable spec. Turnkey installation into another app
+   is not packaged yet.
 2. `promptectomy run` scans the repo for LLM callsites and, for each candidate, launches Codex in an
    isolated git worktree to synthesize a pure, deterministic replacement.
 3. The recorded traffic is split train / dev / holdout (60 / 20 / 20). Codex iterates against train
@@ -26,8 +27,9 @@ the latency, and the nondeterminism forever. PROMPTECTOMY is the going-back, as 
    - COMPILED: agreement on every held-out case.
    - COMPILED_WITH_DIFFS: high agreement, every disagreement shown as a receipt.
    - NOT_COMPILABLE: freeform generation with no deterministic equivalent. This stays a model.
-5. Compiled callsites hot-swap in behind the shim; a 1% shadow guard keeps checking against the model
-   and re-opens a callsite on drift.
+5. Compiled callsites can be enabled through the shim registry when a captured Response envelope is
+   available. The current 1% shadow path records original-model calls, but automatic comparison,
+   disabling on drift, and re-opening synthesis are not implemented yet.
 
 The result: per-callsite cost and latency collapse toward zero, whole-pipeline cost drops by a
 measured percentage, and the one call that genuinely needs a model still uses one.
@@ -53,11 +55,23 @@ Codex is the compiler and the surgeon, not a chat box:
 
 - Engine: Python 3.12 (uv). Shim, ledger, scanner, worktree synthesis, replay, scoring, verifier,
   Typer CLI. Emits a `PipelineEvent` NDJSON stream.
-- Dashboard: Next.js (bun). A live cockpit that renders the run: latency/cost meters, the replay wall,
-  the Codex activity stream, verdicts, and the hot-swap. Reads the same NDJSON.
+- Dashboard: Next.js (bun). A cockpit that renders latency/cost meters, the replay wall, the Codex
+  activity stream, verdicts, and replacement registration from the same NDJSON contract.
 - Contracts frozen in `engine/promptectomy/contracts.py` (Pydantic) and `ui/lib/contracts.ts` (Zod).
 
-## Run it
+## Current prototype boundary
+
+The deployed site is a real renderer of the engine's `PipelineEvent` stream, but the public Vercel
+deployment replays a frozen verified run. It does not run Codex or accept a repository. The scanner
+can inspect any local checkout, while the full compile-and-verify command currently assumes this
+repository's demo layout and recorded ledger. There is no TUI, GitHub import flow, or bundled
+CLI-to-dashboard server yet.
+
+The intended product loop is: install the local CLI and capture shim, point it at a local checkout
+(cloning an online repository first), run synthesis and sealed verification, then open the dashboard
+as the report for that run. Wiring and packaging that end-to-end loop is the next engineering step.
+
+## Run this prototype
 
 ```bash
 # engine: install, capture traffic, then compile + verify

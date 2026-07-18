@@ -4,16 +4,17 @@ Everything a human or a fresh agent needs to take this over. Written 18 July 202
 Repo: github.com/zippyg/codex-build-hack (private). Latest pushed: run `git log --oneline -5`.
 
 ## What it is
-PROMPTECTOMY: point Codex at a repo, it finds the LLM calls that should be deterministic code, writes
-the replacement, and PROVES equivalence by replaying recorded traffic on a sealed holdout the model
-never saw; hot-swaps it in; keeps the calls that genuinely need a model. "The AI that writes the code
-that makes the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 2026.
+PROMPTECTOMY: Codex audits LLM callsites, writes deterministic replacements, and proves equivalence by
+replaying recorded traffic on a sealed holdout it never saw. The prototype produced two verified
+replacements and correctly kept the freeform call as a model. "The AI that writes the code that makes
+the AI unnecessary." Built for the Codex Community Hackathon, London, 18 July 2026.
 
 ## Repo layout
 - `engine/` - Python 3.12 (uv). The tool.
   - `promptectomy/contracts.py` - FROZEN Pydantic contracts (ledger, audit, verdict, PipelineEvent).
-  - `promptectomy/shim.py` - monkeypatches `Responses.create`; records to the ledger; hot-swaps to a
-    compiled engine when the registry enables it; 1% shadow guard. Callsite-id resolution is cached.
+  - `promptectomy/shim.py` - monkeypatches `Responses.create`; records to the ledger; can load a
+    registry-enabled engine when a captured Response envelope exists; samples 1% original-model calls
+    without automatic comparison or drift handling. Callsite-id resolution is cached.
   - `promptectomy/ledger.py` - JSONL ledger, key-based secret redaction.
   - `promptectomy/scan.py` - Codex audit (`codex exec --output-schema`) + a static tag fallback.
   - `promptectomy/synthesize.py` - builds the `codex exec` synthesis call in a worktree; parses --json.
@@ -78,11 +79,8 @@ public receipt, native render check, measured numbers. Open: #13 submit.
 DONE since first handoff: dashboard CLARITY (per-beat Narrator) + INTERACTIVITY (play/pause/restart/
 jump-to-beat control bar). Playwright 8/8, screenshots in ui/screenshots/. The demo is now clickable,
 not just an auto-replay.
-1. DEPLOY TO VERCEL (in progress): deploy `ui/` (Next) as a recorded-replay so judges get a live
-   shareable URL. The engine CANNOT run on Vercel (Python + codex + worktrees); the dashboard + bundled
-   fixture can. `vercel` CLI 54.18.7 installed. The `/fixture` route reads ui/fixtures/demo-run.ndjson
-   at request time - confirm that file is bundled/readable on Vercel (move to `public/` if the route
-   cannot read it in the serverless runtime).
+1. DONE: the recorded-replay dashboard is live at https://promptectomy.vercel.app. The engine does
+   not run on Vercel; the deployment serves the UI and bundled verified fixture.
 2. OPTIONAL: a real Codex computer-use (cxcu) pass driving the live dashboard + clicking the controls.
    So far verified via Playwright (real browser, 8/8) + viewing the rendered screenshots directly.
 3. SUBMIT (#13, human/day-of): get the organiser's London submission link (announced ~10:40); optional
@@ -94,6 +92,8 @@ not just an auto-replay.
 - Agreement = preservation of recorded MODEL behaviour, not objective correctness.
 - Traffic is synthetic-but-realistic (keyless); real capture uses the shim with an API key.
 - Live shim hot-swap needs a captured real Response envelope; the demo shows the swap via the recording.
+- There is no packaged arbitrary-repo runner, TUI, GitHub import, or CLI-to-dashboard bridge yet. The
+  intended product loop is local CLI plus capture, followed by the dashboard as the completed-run report.
 - Both compiled callsites are 100% (no diffs), so the demo shows clean COMPILED, not a forced diff beat.
 
 ## Usage / fleet notes

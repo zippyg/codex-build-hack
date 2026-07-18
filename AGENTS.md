@@ -3,8 +3,11 @@
 Cross-tool guidance (Claude Code + Codex both read this).
 
 ## Tooling
-- Package manager: none yet. Choose only after the team selects an implementation stack, then respect its lockfile.
-- Build/test/lint: no application exists yet. Record exact commands here when the stack is created.
+- Engine: Python 3.12 with `uv`; run commands from `engine/`.
+- Dashboard: Next.js 15 with `bun`; run commands from `ui/`.
+- Engine install/test: `uv sync`, then `uv run pytest -q`.
+- Dashboard install/build/test: `bun install`, `bun run build`, then `bunx playwright test`.
+- Live dashboard: https://promptectomy.vercel.app. This is a recorded replay, not a hosted engine.
 
 ## Working agreement
 - Brutal honesty, evidence-backed, state confidence. No scope creep.
@@ -14,4 +17,5 @@ Cross-tool guidance (Claude Code + Codex both read this).
 ## Memory & logs
 - Curated memory: .agent/memory/  · raw logs: .agent/logs/YYYY-MM-DD/
 - Active work: .agent/state/ACTIVE_PLAN.md, CURRENT_TASK.md
+- Current takeover truth: .agent/state/STATUS_2026-07-18.md
 - Hackathon source of truth: docs/source/2026-07-18-builder-guide.md.

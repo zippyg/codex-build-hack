@@ -1,4 +1,4 @@
-# Submission pack (fill measured numbers after the first clean run)
+# Submission pack
 
 ## Logistics (CONFIRM ON THE DAY)
 - [ ] The exact London submission flow/link (announced ~10:40). THIS IS THE ONLY EXTERNAL BLOCKER.
@@ -10,18 +10,20 @@
 Point Codex at your app; it turns the LLM calls that should be code into tested deterministic code,
 proves them against traffic the model never saw, and keeps the ones that still need a model.
 
-## 90-second demo script (recorded-replay by default; live holdout replay is real)
-- 0:00-0:10  Terminal: `promptectomy run`. Triager processing a ticket through 3 model callsites.
-             Meters show baseline: p50 ~912ms, cost ticking per request.
-- 0:10-0:20  The ledger + 3 audited callsite cards (1,240 recorded calls).
-- 0:20-0:38  Real Codex activity trace: worktree lanes, the generated diff streaming in.
-- 0:38-0:58  Sealed holdout runs LIVE: extract=COMPILED (green flood), route=COMPILED_WITH_DIFFS
-             (one honest diff shown), reply=NOT_COMPILABLE (violet KEEP MODEL, the judgment beat).
-- 0:58-1:13  Enable engines, rerun a fixed batch: latency crashes 912ms to ~3ms, per-callsite cost
-             to $0.00, whole-pipeline cost down [MEASURED]%.
-- 1:13-1:23  Force one shadow comparison; show the 1% runtime guard.
+## 90-second demo script (recorded replay of the verified run)
+- 0:00-0:12  Establish the problem and baseline: 720 recorded calls across three callsites, about
+             900ms per replaceable model call.
+- 0:12-0:27  Show the three audited callsites and explain that the ledger is the executable spec.
+- 0:27-0:48  Show the saved real Codex activity trace: isolated worktrees and generated modules.
+- 0:48-1:08  Show the sealed-holdout receipts: extract 52/52 COMPILED, route 60/60 COMPILED, and
+             freeform reply NOT_COMPILABLE. Codex never saw those holdout inputs.
+- 1:08-1:23  Show measured replay results: compiled latency about 0.006ms and 0.0005ms, with
+             whole-pipeline cost down 44.79%. State that this screen is a recorded run.
 - 1:23-1:30  Close: "Codex turned two prompts into code, proved them against traffic it never saw,
              and kept the third because it still earned its tokens."
+
+Do not claim that the public site runs Codex, performs a live SDK hot-swap, or automatically compares
+shadow outputs. Those are product-direction screens around a recorded verified engine run.
 
 ## Judge Q&A (rehearse)
 Isn't this a strawman? We only compile low-entropy callsites. Codex never saw the sealed holdout,
