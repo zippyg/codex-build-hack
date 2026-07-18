@@ -57,15 +57,20 @@ Codex is the compiler and the surgeon, not a chat box:
 ## Run it
 
 ```bash
-# engine
+# engine: install, capture traffic, then compile + verify
 cd engine && uv sync
-uv run promptectomy run ../demo/triager --events jsonl
+uv run python -m demo.triager.capture 240     # keyless synthetic ledger (or run your own app under the shim)
+uv run promptectomy run .. --events jsonl     # scan -> synthesize in worktrees -> sealed-holdout verify
+uv run promptectomy scan <any-repo>           # audit-only: find LLM callsites in any repo (no traffic)
 
-# dashboard
-cd ui && bun install && bun dev   # http://localhost:4319
+# dashboard (plays the recorded run)
+cd ui && bun install && bun dev               # http://localhost:4319
 ```
 
 ## Status
 
-Built at the Codex Community Hackathon, London, 18 July 2026. Demo numbers come from a real recorded
-run; see the dashboard and `.promptectomy/runs/` for the ledger, verdicts, and Codex traces.
+Built at the Codex Community Hackathon, London, 18 July 2026. On a real run: `extract_ticket_facts`
+and `route_ticket` both COMPILED at 100% agreement on sealed holdouts (52 and 60 cases) that Codex
+never saw, latency ~900ms -> ~0.006ms, whole-pipeline cost -44.8%; the freeform reply was correctly
+kept as a model. The scanner was also run on microsoft/markitdown and found its 3 vision/LLM callsites,
+correctly keeping all three. Generated modules, receipts, and the full story are in docs/SUBMISSION.md.
