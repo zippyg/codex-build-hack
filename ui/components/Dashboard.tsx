@@ -6,6 +6,7 @@ import { Narrator } from "./Narrator";
 import { MeterStrip } from "./MeterStrip";
 import { CallsiteWall } from "./CallsiteWall";
 import { MainStage } from "./MainStage";
+import { DemoControls } from "./DemoControls";
 
 export function Dashboard({
   speed,
@@ -16,7 +17,7 @@ export function Dashboard({
   until: number | null;
   live: string | null;
 }) {
-  const state = useEventStream({ live, speed, until });
+  const { state, controls } = useEventStream({ live, speed, until });
 
   return (
     <main
@@ -31,6 +32,7 @@ export function Dashboard({
         <CallsiteWall state={state} />
         <MainStage state={state} />
       </div>
+      {live === null ? <DemoControls controls={controls} beat={state.beat} /> : null}
     </main>
   );
 }
