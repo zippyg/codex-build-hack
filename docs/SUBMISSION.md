@@ -45,7 +45,23 @@ uses OpenAI. Better allocation of inference, not anti-model theatre.
 - [ ] Pre-warm python/next/import. Recorded real Codex trace for the demo; holdout replay + meters live.
 - [ ] Full backup screen recording. Static verdict fixtures. Live model never on the 90s critical path.
 
-## Measured numbers (fill after the clean run)
-- Recorded calls: [ ] · Holdout N per compiled callsite: [ ] · Agreement: extract [ ], route [ ]
-- Latency before/after: [ ]ms to [ ]ms · Whole-pipeline cost reduction: [ ]%
-- Est. monthly savings shown: $[ ]
+## Measured numbers (from the frozen demo run 0269a16, 720 recorded calls)
+- Recorded calls: 720 (240 tickets x 3 callsites), synthetic-but-realistic (keyless).
+- extract_ticket_facts: COMPILED, 100% agreement on a 52-case SEALED holdout, ~900ms -> 0.006ms.
+- route_ticket: COMPILED, 100% agreement on a 60-case SEALED holdout, ~900ms -> 0.0005ms.
+- draft_empathetic_reply: NOT_COMPILABLE (freeform, correctly kept as a model call).
+- Whole-pipeline cost reduction: 44.79% (the kept freeform call is why it is not higher; honest).
+- Real capture via the shim needs an OPENAI_API_KEY; the demo uses synthetic recorded traffic by design.
+- The generated modules (regex parser + negation-aware rule classifier) are committed as evidence.
+
+## Security posture (we threat-modeled our own tool; full audit in .claude/agent-logs/security-audit-20260718.md)
+- API keys never reach the ledger: the shim drops extra_headers, never captures the client key, and
+  redacts Authorization/api_key/secret/password/bearer. Verified by test.
+- The Codex synthesis child runs with OPENAI_API_KEY scrubbed from its environment.
+- The sealed holdout is never staged into the synthesis worktree; Codex cannot see it, and it runs once.
+- Generated code is gated by a static purity guard (AST): forbidden imports (os/sys/subprocess/socket/
+  importlib/...) and IO/eval builtins are rejected BEFORE the module is imported. Enforced, not prompted.
+- The compiled module path is confined to the generated directory (no traversal / arbitrary load).
+- Subprocess calls are argv-form (no shell); semgrep clean; no unsafe deserialization.
+- Stated boundary (say it in the pitch): generated code still executes in-process; production would run
+  it in an out-of-process sandbox with rlimits. Demo uses synthetic data, single user, no real PII.

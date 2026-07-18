@@ -12,18 +12,23 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from types import ModuleType
 from typing import Any, Callable
 
 from openai.resources.responses.responses import Responses
 
 from .contracts import LedgerEventV1, Usage
+from .guard import assert_pure
 from .ledger import append, redact
 from .pricing import estimate_cost
 
 _original_create: Callable[..., Any] | None = None
 _config: tuple[Path, Path, Path] | None = None
 _tag_prefix = "promptectomy:callsite_id="
+
+# (path, line) -> resolved id. Source does not change during a run, so caching removes a source
+# read (and, for untagged sites, an AST parse) from the compiled hot path, which targets sub-ms.
+_tag_id_cache: dict[tuple[str, int], str | None] = {}
+_ast_ordinal_cache: dict[tuple[str, int], int] = {}
 
 
 def _json_value(value: Any) -> Any:
@@ -47,21 +52,32 @@ def _registry(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _tagged_id(path: Path, line: int) -> str | None:
+    key = (str(path), line)
+    if key in _tag_id_cache:
+        return _tag_id_cache[key]
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
+        _tag_id_cache[key] = None
         return None
+    result: str | None = None
     for candidate in reversed(lines[max(0, line - 6) : line]):
         if _tag_prefix not in candidate:
             continue
-        return candidate.split(_tag_prefix, 1)[1].split()[0]
-    return None
+        result = candidate.split(_tag_prefix, 1)[1].split()[0]
+        break
+    _tag_id_cache[key] = result
+    return result
 
 
 def _ast_ordinal(path: Path, line: int) -> int:
+    key = (str(path), line)
+    if key in _ast_ordinal_cache:
+        return _ast_ordinal_cache[key]
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (OSError, SyntaxError):
+        _ast_ordinal_cache[key] = line
         return line
     calls = [
         node
@@ -73,10 +89,9 @@ def _ast_ordinal(path: Path, line: int) -> int:
         and node.func.value.attr == "responses"
     ]
     calls.sort(key=lambda node: node.lineno)
-    for ordinal, node in enumerate(calls, start=1):
-        if node.lineno >= line:
-            return ordinal
-    return len(calls) + 1
+    ordinal = next((index for index, node in enumerate(calls, start=1) if node.lineno >= line), len(calls) + 1)
+    _ast_ordinal_cache[key] = ordinal
+    return ordinal
 
 
 def _callsite_id(repo_root: Path) -> tuple[str, Path | None, int | None]:
@@ -134,7 +149,12 @@ def _engine(config: dict[str, Any], registry_path: Path) -> Callable[[Any, dict[
         raise ValueError("enabled compiled registry entry has no module_path")
     path = Path(location)
     if not path.is_absolute():
-        path = (registry_path.parent / path).resolve()
+        path = registry_path.parent / path
+    path = path.resolve()
+    allowed_root = (registry_path.parent.parent / "engine" / "promptectomy" / "generated").resolve()
+    if not path.is_relative_to(allowed_root):
+        raise ValueError(f"compiled module {path} is outside the generated directory {allowed_root}")
+    assert_pure(path)
     spec = importlib.util.spec_from_file_location(f"promptectomy_swap_{path.stem}", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot import compiled engine {path}")

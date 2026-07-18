@@ -8,10 +8,10 @@ import statistics
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
 from typing import Any, Callable, Literal
 
 from .contracts import LedgerEventV1
+from .guard import assert_pure
 from .scoring import Score, score
 
 CALL_TIMEOUT_SECONDS = 0.100
@@ -28,6 +28,7 @@ class ReplayResult:
 
 def load_engine(module_path: str | Path) -> Callable[[Any, dict[str, Any]], Any]:
     path = Path(module_path)
+    assert_pure(path)
     spec = importlib.util.spec_from_file_location(f"promptectomy_generated_{path.stem}", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load generated module {path}")

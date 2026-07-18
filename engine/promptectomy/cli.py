@@ -163,5 +163,37 @@ def disable(callsite_id: str, repo: Annotated[Path, typer.Option("--repo")] = Pa
     _write_registry(root, registry)
 
 
+@app.command("scan")
+def scan_cmd(
+    repo: Annotated[Path, typer.Argument()],
+    out: Annotated[Path, typer.Option("--out")] = Path("."),
+) -> None:
+    """Audit ANY repo for LLM callsites and print the report. No traffic, no synthesis, no verdict."""
+    import subprocess
+
+    from .contracts import AuditReport
+    from .scan import build_command
+
+    root = repo.resolve()
+    schema_path = Path(__file__).parents[1] / "schemas" / "audit-v1.json"
+    out_resolved = out.resolve()
+    out_path = out_resolved / "audit.json" if out_resolved.is_dir() else out_resolved
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_prompt = (
+        "Audit this repository for OpenAI or other LLM API callsites (responses.create, "
+        "chat.completions.create, or equivalents). Return the required JSON. For each callsite set kind "
+        "to structured, classifier, or freeform; eligibility to candidate for low-entropy structured or "
+        "classification calls and keep_model for freeform generation or vision; sample_count 0; and a "
+        "short reason. Do not decide a verdict and never inspect a sealed holdout."
+    )
+    try:
+        subprocess.run(build_command(root, schema_path, out_path), input=audit_prompt, text=True, capture_output=True, check=True, timeout=180)
+        report = AuditReport.model_validate_json(out_path.read_text(encoding="utf-8"))
+    except (subprocess.SubprocessError, ValueError, OSError) as exc:
+        typer.echo(f"scan failed: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(report.model_dump_json(indent=2))
+
+
 if __name__ == "__main__":
     app()

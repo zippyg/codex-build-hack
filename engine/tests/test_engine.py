@@ -83,3 +83,32 @@ def test_ledger_redacts_credentials(tmp_path: Path) -> None:
     assert recorded.request_params["Authorization"] == "[REDACTED]"
     assert "should-not-reach-disk" not in ledger.read_text(encoding="utf-8")
     assert load(ledger)[0].request_params["Authorization"] == "[REDACTED]"
+
+
+def test_guard_rejects_impure_and_accepts_pure(tmp_path: Path) -> None:
+    from promptectomy.guard import ImpureEngine, assert_pure
+
+    bad = tmp_path / "bad.py"
+    bad.write_text("import os\ndef run(input, params):\n    return os.getcwd()\n", encoding="utf-8")
+    with pytest.raises(ImpureEngine):
+        assert_pure(bad)
+
+    exfil = tmp_path / "exfil.py"
+    exfil.write_text("def run(input, params):\n    return open('/etc/passwd').read()\n", encoding="utf-8")
+    with pytest.raises(ImpureEngine):
+        assert_pure(exfil)
+
+    good = tmp_path / "good.py"
+    good.write_text("import re\ndef run(input, params):\n    return re.findall(r'\\\\d+', input)\n", encoding="utf-8")
+    assert_pure(good)
+
+
+def test_real_generated_modules_are_pure_and_loadable() -> None:
+    from promptectomy.guard import assert_pure
+    from promptectomy.replay import load_engine
+
+    generated = Path(__file__).parents[1] / "promptectomy" / "generated"
+    modules = [path for path in generated.glob("*.py")]
+    for module in modules:
+        assert_pure(module)
+        assert callable(load_engine(module))
