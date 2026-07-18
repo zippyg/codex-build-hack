@@ -56,12 +56,15 @@ export function GuardDiagram({ state }: { state: DashState }) {
           <span className="tnum text-[clamp(28px,5vh,52px)] font-medium text-keep">
             {t.kept} <span className="text-[0.55em] text-muted">KEPT</span>
           </span>
+          {/* monthly savings only when the engine measured one; never an unqualified guess */}
+          {t.est_monthly_savings_usd > 0 && (
+            <span className="tnum text-[clamp(28px,5vh,52px)] font-medium text-go">
+              ${Math.round(t.est_monthly_savings_usd)}
+              <span className="text-[0.55em] text-muted">/MO SAVED</span>
+            </span>
+          )}
           <span className="tnum text-[clamp(28px,5vh,52px)] font-medium text-go">
-            ${Math.round(t.est_monthly_savings_usd)}
-            <span className="text-[0.55em] text-muted">/MO SAVED</span>
-          </span>
-          <span className="tnum text-[clamp(28px,5vh,52px)] font-medium text-go">
-            -{Math.round(t.pipeline_cost_reduction_pct)}%
+            -{t.pipeline_cost_reduction_pct.toFixed(1)}%
             <span className="text-[0.55em] text-muted"> PIPELINE COST</span>
           </span>
           <span className="flex-1" />

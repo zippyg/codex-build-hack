@@ -8,10 +8,12 @@
           "type": "string"
         },
         "input_preview": {
-          "$ref": "#/$defs/JsonValue"
+          "title": "Input Preview",
+          "type": "string"
         },
         "output_preview": {
-          "$ref": "#/$defs/JsonValue"
+          "title": "Output Preview",
+          "type": "string"
         }
       },
       "required": [
@@ -98,8 +100,7 @@
       ],
       "title": "CallsiteAudit",
       "type": "object"
-    },
-    "JsonValue": {}
+    }
   },
   "additionalProperties": false,
   "properties": {

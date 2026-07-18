@@ -36,9 +36,13 @@ Deleting OpenAI calls at an OpenAI event, good look? We spend powerful inference
 then reserve recurring inference for the callsites where it earns its keep. The freeform reply still
 uses OpenAI. Better allocation of inference, not anti-model theatre.
 
-## Public receipt (kills the strawman)
-- [ ] Scan a pinned commit of microsoft/markitdown; its OpenAI-assisted vision path should be marked
-      keep-model. Label: "public repo audit, no traffic" (no recorded traffic = no equivalence verdict).
+## Public receipt (kills the strawman) - DONE
+- Ran `promptectomy scan` on microsoft/markitdown @ e144e0a (public repo, no traffic). Codex found 3
+  real LLM callsites and correctly marked ALL THREE keep_model: image-caption (_llm_caption.py),
+  image-description (_image_converter.py), and vision OCR (_ocr_service.py). The tool refused to
+  compile code it did not write, because those are genuinely multimodal. Receipt in
+  .agent/artifacts/receipts/markitdown-audit.json (+ meta with the SHA).
+- Judgment demonstrated on someone else's code. Offer a live scan of any public repo in Q&A.
 
 ## Reliability checklist
 - [ ] Cached synthetic ledger; saved real Codex event stream + generated commit + diff.

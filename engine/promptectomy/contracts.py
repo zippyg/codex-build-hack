@@ -57,9 +57,11 @@ class LedgerEventV1(Closed):
 
 
 class AuditSample(Closed):
+    # str, not JsonValue: these are display previews, and OpenAI strict --output-schema rejects
+    # a field with no concrete type (JsonValue), which silently forced the scanner onto its fallback.
     event_id: str
-    input_preview: JsonValue
-    output_preview: JsonValue
+    input_preview: str = ""
+    output_preview: str = ""
 
 
 class CallsiteAudit(Closed):
