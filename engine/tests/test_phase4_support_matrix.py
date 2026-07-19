@@ -14,7 +14,6 @@ from promptectomy.support_matrix_phase4 import (
 
 EVIDENCE = {
     "ARCH",
-    "BACKUP-DELETE",
     "BUNDLE",
     "CAP-NODE",
     "CAP-PY",
@@ -31,7 +30,6 @@ EVIDENCE = {
     "OTLP-MAPPING",
     "PATH",
     "PRIV-CANARY",
-    "PRIV-DEL",
     "TREE-SITTER-PINNED",
 }
 
@@ -53,7 +51,7 @@ def test_matrix_publishes_only_evidenced_stable_cells_and_visible_gaps() -> None
     cells = matrix["cells"]
     assert isinstance(cells, list)
     stable = [cell for cell in cells if cell["state"] == "stable"]
-    assert len(stable) == 12
+    assert len(stable) == 11
     assert all(cell["evidence"] for cell in stable)
     local = next(cell for cell in stable if cell["cell_id"] == "acquisition_local")
     assert "Windows" in local["limitation"]
@@ -61,6 +59,7 @@ def test_matrix_publishes_only_evidenced_stable_cells_and_visible_gaps() -> None
     assert any(cell["cell_id"] == "python_runtime_capture" and cell["state"] == "stable" for cell in cells)
     assert any(cell["cell_id"] == "node_runtime_capture" and cell["state"] == "stable" for cell in cells)
     assert any(cell["cell_id"] == "persistent_protected_storage" and cell["state"] == "unsupported" for cell in cells)
+    assert any(cell["cell_id"] == "local_deletion" and cell["state"] == "experimental" for cell in cells)
     assert any(cell["state"] == "experimental" and cell["level"] == "L3" for cell in cells)
     assert any(cell["state"] == "unsupported" and cell["level"] == "L5" for cell in cells)
 

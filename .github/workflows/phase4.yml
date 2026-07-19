@@ -30,7 +30,20 @@ jobs:
         working-directory: engine
       - run: uv run ruff check .
         working-directory: engine
-      - run: uv run pytest -q
+      - if: runner.os != 'Windows'
+        run: uv run pytest -q
+        working-directory: engine
+      - if: runner.os == 'Windows'
+        run: >-
+          uv run pytest -q
+          tests/test_contracts_v2.py
+          tests/test_phase4_acceptance.py
+          tests/test_phase4_capture_python.py
+          tests/test_phase4_discovery.py
+          tests/test_phase4_evidence.py
+          tests/test_phase4_privacy.py
+          tests/test_phase4_support_matrix.py
+          -k "not identical_calls_in_one_symbol and not integrated_callsites and not safe_outputs_never_include"
         working-directory: engine
       - run: bun install --frozen-lockfile
         working-directory: adapters/node

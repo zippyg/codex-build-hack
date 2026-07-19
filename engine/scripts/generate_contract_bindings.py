@@ -209,9 +209,9 @@ def generate() -> None:
     rust_examples = rust_schema.parent / "examples"
     for path in (python_path, typescript_path, rust_path, rust_schema):
         path.parent.mkdir(parents=True, exist_ok=True)
-    python_path.write_text("\n".join(python_lines), encoding="utf-8")
-    typescript_path.write_text("\n".join(typescript_lines), encoding="utf-8")
-    rust_path.write_text("\n".join(rust_lines), encoding="utf-8")
+    python_path.write_text("\n".join(python_lines), encoding="utf-8", newline="\n")
+    typescript_path.write_text("\n".join(typescript_lines), encoding="utf-8", newline="\n")
+    rust_path.write_text("\n".join(rust_lines), encoding="utf-8", newline="\n")
     rust_schema.write_bytes(raw)
     if rust_examples.exists():
         shutil.rmtree(rust_examples)

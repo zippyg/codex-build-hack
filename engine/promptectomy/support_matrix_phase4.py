@@ -66,7 +66,6 @@ _STABLE_REQUIREMENTS = {
     "otlp_http_json": ("OTLP-HTTP", "OTLP-MAPPING", "PRIV-CANARY"),
     "otlp_grpc_protobuf": ("OTLP-GRPC", "OTLP-MAPPING", "PRIV-CANARY"),
     "egress_manifest": ("EGRESS", "PRIV-CANARY"),
-    "local_deletion": ("PRIV-DEL", "BACKUP-DELETE"),
 }
 
 
@@ -220,14 +219,16 @@ def build_phase4_support_matrix(
                 operation="authority_complete_manifest_preview",
                 level="L2",
             ),
-            _stable(
+            SupportCell(
                 "local_deletion",
-                evidence,
-                capability="retention_deletion",
-                language="language_neutral",
-                provider="local_tool_storage",
-                operation="reference_aware_deletion_receipt",
-                level="L2",
+                "retention_deletion",
+                "language_neutral",
+                "local_tool_storage",
+                "reference_aware_deletion_receipt",
+                "L2",
+                "experimental",
+                (),
+                "Flat synthetic artifacts are covered, but transactional protected storage, backup references, key destruction, and crash recovery are not complete.",
             ),
             SupportCell(
                 "acquisition_https",

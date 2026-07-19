@@ -535,6 +535,16 @@ def plan_deletion(inventory: DeletionInventory) -> DeletionPlan:
     return DeletionPlan(deletable, blocked, tuple(sorted(inventory.external_copy_labels)))
 
 
+def _fsync_directory(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def execute_deletion(
     root: Path,
     inventory: DeletionInventory,
@@ -566,11 +576,7 @@ def execute_deletion(
         if _sha256(path.read_bytes()) != artifact_id:
             raise PrivacyError("deletion_artifact_tampered", "Deletion artifact content does not match its identity")
         path.unlink()
-    directory = os.open(artifacts_root, os.O_RDONLY)
-    try:
-        os.fsync(directory)
-    finally:
-        os.close(directory)
+    _fsync_directory(artifacts_root)
 
     residual = tuple(
         sorted(
@@ -597,11 +603,7 @@ def execute_deletion(
     final_path = receipts_root / f"{digest.removeprefix('sha256:')}.json"
     try:
         os.replace(pending_path, final_path)
-        directory = os.open(receipts_root, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        _fsync_directory(receipts_root)
     finally:
         if pending_path.exists():
             pending_path.unlink()

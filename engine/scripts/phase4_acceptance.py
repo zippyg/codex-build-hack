@@ -34,6 +34,8 @@ PROTECTED_TRACKED_DIGEST = "75944ba99d386798002496ae0ef39bf8d0159f4bb2d2daea57b6
 RECEIPT_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "phase-4-receipt.json"
 MATRIX_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "support-matrix-v1.json"
 BOUND_PATHS = (
+    ".gitattributes",
+    ".github/workflows/phase4.yml",
     "adapters/node",
     "engine/promptectomy/capture_python.py",
     "engine/promptectomy/discovery_javascript.py",
@@ -90,7 +92,7 @@ class SuitePlan:
 
 SUITE_PLAN = {
     "ARCH": SuitePlan("passed", ("acquisition",)),
-    "BACKUP-DELETE": SuitePlan("passed", ("privacy",)),
+    "BACKUP-DELETE": SuitePlan("unsupported", ("privacy",)),
     "BUNDLE": SuitePlan("passed", ("acquisition",)),
     "CAP-NODE": SuitePlan("passed", ("capture-node",)),
     "CAP-NORMALIZE": SuitePlan("passed", ("evidence", "capture-python", "capture-node")),
@@ -110,7 +112,7 @@ SUITE_PLAN = {
     "OTLP-MAPPING": SuitePlan("passed", ("evidence",)),
     "PATH": SuitePlan("passed", ("acquisition",)),
     "PRIV-CANARY": SuitePlan("passed", ("evidence", "privacy", "capture-python", "capture-node")),
-    "PRIV-DEL": SuitePlan("passed", ("privacy",)),
+    "PRIV-DEL": SuitePlan("unsupported", ("privacy",)),
     "PROTECTED-DIGEST": SuitePlan("passed", ("source-guard",)),
     "SOURCE-STATUS": SuitePlan("passed", ("source-guard",)),
     "TREE-SITTER-PINNED": SuitePlan("passed", ("lock", "discovery")),

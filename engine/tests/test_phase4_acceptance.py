@@ -62,7 +62,6 @@ def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupporte
     records = {record.suite_id: record for record in receipt.records}
     expected_passed = {
         "ARCH",
-        "BACKUP-DELETE",
         "BUNDLE",
         "CAP-NODE",
         "CAP-NORMALIZE",
@@ -78,13 +77,14 @@ def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupporte
         "OTLP-MAPPING",
         "PATH",
         "PRIV-CANARY",
-        "PRIV-DEL",
         "TREE-SITTER-PINNED",
     }
     assert all(records[suite_id].status == "passed" for suite_id in expected_passed)
     assert records["GIT-HTTPS"].status == "unsupported"
     assert records["GIT-SSH-BROKER"].status == "unsupported"
     assert records["KEYSTORE-PERSISTENT"].status == "unsupported"
+    assert records["BACKUP-DELETE"].status == "unsupported"
+    assert records["PRIV-DEL"].status == "unsupported"
     assert records["CAP-PY"].status == "passed"
     assert records["WHEEL-CLEAN"].status == "passed"
     assert len({record.result_digest for record in receipt.records}) == len(receipt.records)
@@ -148,6 +148,11 @@ def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests
     assert phase4_acceptance.PROTECTED_DIGEST != phase4_acceptance.PROTECTED_TRACKED_DIGEST
     assert len(phase4_acceptance.PROTECTED_DIGEST) == 64
     assert len(phase4_acceptance.PROTECTED_TRACKED_DIGEST) == 64
+
+
+def test_receipt_staleness_boundary_covers_phase4_ci_and_line_endings() -> None:
+    assert ".github/workflows/phase4.yml" in phase4_acceptance.BOUND_PATHS
+    assert ".gitattributes" in phase4_acceptance.BOUND_PATHS
 
 
 def test_tracked_output_verification_rejects_stale_bound_paths(
