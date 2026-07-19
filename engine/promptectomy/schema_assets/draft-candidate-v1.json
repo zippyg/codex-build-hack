@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1", "type": "string"},
+    "patch": {"maxLength": 1000000, "minLength": 1, "type": "string"},
+    "affected_paths": {
+      "items": {"maxLength": 4096, "minLength": 1, "type": "string"},
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "proposed_tests": {
+      "items": {"maxLength": 4000, "minLength": 1, "type": "string"},
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "rationale": {"maxLength": 4000, "minLength": 1, "type": "string"},
+    "evidence": {
+      "items": {"maxLength": 4000, "minLength": 1, "type": "string"},
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "limitations": {
+      "items": {"maxLength": 4000, "minLength": 1, "type": "string"},
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "patch",
+    "affected_paths",
+    "proposed_tests",
+    "rationale",
+    "evidence",
+    "limitations"
+  ],
+  "type": "object"
+}

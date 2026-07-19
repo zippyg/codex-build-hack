@@ -1,305 +1,366 @@
-"""PROMPTECTOMY command-line orchestration."""
+"""PROMPTECTOMY Phase 1A command-line surface."""
 
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
+import os
+import stat
 import sys
-from collections import defaultdict
 from importlib.resources import files
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Annotated
 from urllib.parse import urlparse
 
 import typer
 
-from .contracts import CallsiteStatusEvent, DoneEvent, DoneTotals, ReplayEvent, SwapEvent, TrafficEvent, Verdict, VerdictEvent
-from .events import EventRecorder
-from .ledger import load
-from .scan import scan, scan_event
-from .splitting import split
-from .synthesize import run as synthesize
-from .verify import HoldoutVerifier
-from .worktrees import cleanup, create, stage
+from .connector import ResponsesConnector
+from .reference import ReferenceFailure, default_state_root, execute, load_latest_run, load_run, render_report
+from .reference_contracts import RunResult
+
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
 
-def _remote_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
-
-
-def _audit_schema_path() -> Path:
-    return Path(str(files("promptectomy.schema_assets").joinpath("audit-v1.json")))
-
-
-class _RunRecorder:
-    def __init__(self, event_path: Path, mode: str) -> None:
-        self.mode = mode
-        event_path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = event_path.open("w", encoding="utf-8")
-        self._persisted = EventRecorder(self._file)
-        self._console = EventRecorder(sys.stdout) if mode == "jsonl" else None
-
-    def emit(self, event: object) -> None:
-        self._persisted.emit(event)  # type: ignore[arg-type]
-        if self._console is not None:
-            self._console.emit(event)  # type: ignore[arg-type]
-            return
-        kind = getattr(event, "type", type(event).__name__)
-        callsite = getattr(event, "callsite_id", "")
-        if kind == "traffic":
-            return
-        if kind == "replay":
-            typer.echo(f"replay {callsite}: {getattr(event, 'passed', 0)}/{getattr(event, 'total', 0)}")
-        elif kind == "verdict":
-            verdict = getattr(event, "verdict", None)
-            typer.echo(f"verdict {getattr(verdict, 'callsite_id', callsite)}: {getattr(verdict, 'status', 'unknown')}")
-        elif kind == "done":
-            totals = getattr(event, "totals", None)
-            typer.echo(f"done: {getattr(totals, 'compiled', 0)} compiled, {getattr(totals, 'kept', 0)} kept")
+def _state_root(json_output: bool) -> Path:
+    try:
+        return default_state_root()
+    except (OSError, ValueError):
+        payload = {
+            "schema_version": "phase1a-1",
+            "status": "failed",
+            "error": {
+                "code": "invalid_state_root",
+                "category": "state",
+                "retryable": False,
+                "safe_message": "The configured tool state root is invalid.",
+                "next_action": "Configure PROMPTECTOMY_HOME as an absolute owner-controlled path.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
         else:
-            suffix = f" {callsite}" if callsite else ""
-            typer.echo(f"{kind}{suffix}")
-
-    def close(self) -> None:
-        self._file.close()
+            typer.echo("error: invalid_state_root", err=True)
+            typer.echo(payload["error"]["safe_message"], err=True)
+        raise typer.Exit(code=9)
 
 
-def _registry_path(repo: Path) -> Path:
-    return repo / ".promptectomy" / "registry.json"
+def _exit_code(result: RunResult) -> int:
+    if result.status in {"completed", "completed_no_findings"}:
+        return 0
+    if result.status == "completed_with_unsupported":
+        return 0 if result.mode == "inspect" else 3
+    if result.status in {"cancelled", "interrupted"}:
+        return 8
+    if result.error is None:
+        return 9
+    if result.error.category == "input":
+        return 2
+    if result.error.category == "unsupported":
+        return 3
+    if result.error.category == "policy":
+        return 4
+    if result.error.category == "agent":
+        return 6
+    return 9
 
 
-def _read_registry(repo: Path) -> dict[str, object]:
-    path = _registry_path(repo)
-    if not path.exists():
-        return {"callsites": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
+def _emit(result: RunResult, json_output: bool, *, preserve_run_exit: bool = True) -> None:
+    if json_output:
+        typer.echo(result.model_dump_json())
+    else:
+        typer.echo(f"run: {result.run_id}")
+        typer.echo(f"mode: {result.mode}")
+        typer.echo(f"status: {result.status}")
+        typer.echo(f"support: {result.support.highest_level}")
+        typer.echo(f"callsites: {result.support.callsites}")
+        typer.echo(f"unsupported: {len(result.unsupported)}")
+        if result.candidate is not None:
+            typer.echo(f"candidate: {result.candidate.state} ({result.candidate.candidate_id})")
+        if result.error is not None:
+            typer.echo(f"error: {result.error.code}", err=True)
+            typer.echo(result.error.safe_message, err=True)
+            typer.echo(f"next: {result.error.next_action}", err=True)
+    code = _exit_code(result) if preserve_run_exit else 0
+    if code:
+        raise typer.Exit(code=code)
 
 
-def _write_registry(repo: Path, registry: dict[str, object]) -> None:
-    path = _registry_path(repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(registry, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+def _execute_command(
+    mode: str,
+    source: str | Path,
+    json_output: bool,
+    *,
+    policy: Path | None = None,
+) -> None:
+    state = _state_root(json_output)
+    try:
+        result = execute(
+            mode,
+            source,
+            state_root=state,
+            policy=policy,
+            connector=ResponsesConnector.from_environment() if mode == "draft" else None,
+        )
+    except ReferenceFailure as exc:
+        payload = {
+            "schema_version": "phase1a-1",
+            "status": "failed",
+            "error": exc.error.model_dump(mode="json"),
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo(f"error: {exc.error.code}", err=True)
+            typer.echo(exc.error.safe_message, err=True)
+        if exc.error.category == "input":
+            raise typer.Exit(code=2)
+        if exc.error.category == "unsupported":
+            raise typer.Exit(code=3)
+        if exc.error.category == "policy":
+            raise typer.Exit(code=4)
+        raise typer.Exit(code=9)
+    except ValueError:
+        payload = {
+            "schema_version": "phase1a-1",
+            "status": "failed",
+            "error": {
+                "code": "invalid_source",
+                "category": "input",
+                "retryable": False,
+                "safe_message": "The selected source is invalid or unavailable.",
+                "next_action": "Provide a readable local directory outside the tool state root.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo("error: invalid_source", err=True)
+            typer.echo(payload["error"]["safe_message"], err=True)
+        raise typer.Exit(code=2)
+    except OSError:
+        payload = {
+            "schema_version": "phase1a-1",
+            "status": "failed",
+            "error": {
+                "code": "state_unavailable",
+                "category": "state",
+                "retryable": True,
+                "safe_message": "Private tool state is unavailable.",
+                "next_action": "Check owner-only state storage permissions and free space before retrying.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo("error: state_unavailable", err=True)
+        raise typer.Exit(code=9)
+    _emit(result, json_output)
 
 
 @app.command()
-def run(
-    repo: Annotated[Path, typer.Argument()] = Path("."),
-    events: Annotated[str, typer.Option("--events")] = "jsonl",
-    event_log: Annotated[Path | None, typer.Option("--event-log")] = None,
+def doctor(
+    source: Annotated[Path | None, typer.Argument()] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Scan, synthesize candidates in worktrees, then parent-verify sealed holdouts once."""
-    if events not in {"jsonl", "human"}:
-        raise typer.BadParameter("--events must be jsonl or human")
-    root = repo.resolve()
-    if not root.is_dir() or not (root / ".git").exists():
-        raise typer.BadParameter(f"run requires a local Git checkout: {root}")
-    ledger_path = root / ".promptectomy" / "ledger.jsonl"
-    if not ledger_path.exists() or ledger_path.stat().st_size == 0:
-        raise typer.BadParameter(
-            f"no captured traffic at {ledger_path}; run the application with the capture shim before compile"
-        )
-    schema_path = _audit_schema_path()
-    audit_path = root / ".promptectomy" / "run" / "audit.json"
-    audit_path.parent.mkdir(parents=True, exist_ok=True)
-    recorder = _RunRecorder((event_log or audit_path.parent / "events.ndjson").resolve(), events)
-    recorded = load(ledger_path)
-    for event in recorded:
-        recorder.emit(TrafficEvent(callsite_id=event.callsite_id, latency_ms=event.latency_ms, cost_usd=event.estimated_cost_usd or 0.0, source="llm"))
-    audit, _codex_events = scan(root, ledger_path, schema_path, audit_path)
-    recorder.emit(scan_event(audit, ledger_path))
-    grouped = defaultdict(list)
-    for event in recorded:
-        grouped[event.callsite_id].append(event)
-    verifier = HoldoutVerifier()
-    registry = _read_registry(root)
-    entries = registry.setdefault("callsites", {})
-    assert isinstance(entries, dict)
-    verdicts: list[Verdict] = []
-    for callsite in audit.callsites:
-        recorder.emit(CallsiteStatusEvent(callsite_id=callsite.callsite_id, status="queued"))
-        events_for_callsite = grouped[callsite.callsite_id]
-        splits = split(events_for_callsite)
-        if callsite.kind == "freeform" or callsite.eligibility != "candidate":
-            verdict = verifier.verify(root / "engine" / "promptectomy" / "generated" / f"{callsite.callsite_id}.py", splits.holdout, "freeform")
-        else:
-            fixture_dir = root / ".promptectomy" / "fixtures" / callsite.callsite_id
-            fixture_dir.mkdir(parents=True, exist_ok=True)
-            train_fixture = fixture_dir / "train.jsonl"
-            dev_fixture = fixture_dir / "dev.jsonl"
-            train_fixture.write_text("".join(event.model_dump_json() + "\n" for event in splits.train), encoding="utf-8")
-            dev_fixture.write_text("".join(event.model_dump_json() + "\n" for event in splits.dev), encoding="utf-8")
-            worktree = create(root, root / ".promptectomy" / "worktrees", callsite.callsite_id)
-            try:
-                stage(worktree, root / "engine", [train_fixture, dev_fixture])
-                first = synthesize(worktree, callsite.callsite_id, callsite.kind)
-                for emitted in first.events:
-                    recorder.emit(emitted)
-                module = worktree.path / "engine" / "promptectomy" / "generated" / f"{callsite.callsite_id}.py"
-                if (first.timed_out or first.returncode != 0 or not module.exists()) and not first.timed_out:
-                    second = synthesize(worktree, callsite.callsite_id, callsite.kind, resume=True)
-                    for emitted in second.events:
-                        recorder.emit(emitted)
-                if module.exists():
-                    destination = root / "engine" / "promptectomy" / "generated" / module.name
-                    shutil.copy2(module, destination)
-                    recorder.emit(CallsiteStatusEvent(callsite_id=callsite.callsite_id, status="replaying"))
-                    verdict = verifier.verify(destination, splits.holdout, callsite.kind)
-                else:
-                    verdict = Verdict(callsite_id=callsite.callsite_id, status="ERROR", reason="synthesis_did_not_write_generated_module", holdout_n=len(splits.holdout))
-            finally:
-                cleanup(worktree)
-        verdicts.append(verdict)
-        recorder.emit(ReplayEvent(callsite_id=callsite.callsite_id, passed=verdict.holdout_n - len(verdict.diffs), total=verdict.holdout_n))
-        if verdict.status in {"COMPILED", "COMPILED_WITH_DIFFS"}:
-            template = next((event.response_raw for event in events_for_callsite if event.response_raw is not None), None)
-            entries[callsite.callsite_id] = {
-                "enabled": verdict.status == "COMPILED",
-                "module_path": str(Path("../engine/promptectomy/generated") / f"{callsite.callsite_id}.py"),
-                "response_template": template,
-                "kind": callsite.kind,
-                "shadow_rate": 0.01,
-                "accepted_verdict": verdict.status,
-            }
-        recorder.emit(VerdictEvent(verdict=verdict))
-        if verdict.status == "COMPILED":
-            baseline = [event for event in events_for_callsite if event.latency_ms >= 0]
-            recorder.emit(
-                SwapEvent(
-                    callsite_id=callsite.callsite_id,
-                    before_ms=sum(event.latency_ms for event in baseline) / len(baseline) if baseline else 0.0,
-                    after_ms=verdict.median_latency_ms or 0.0,
-                    before_cost=sum((event.estimated_cost_usd or 0.0) for event in baseline),
+    """Report Phase 1A readiness without exposing secret values."""
+    state = _state_root(json_output)
+    schema = files("promptectomy.schema_assets").joinpath("draft-candidate-v1.json")
+    try:
+        source_ready = source is None or (source.is_dir() and not source.is_symlink())
+        state_outside = source is None or not state.resolve(strict=False).is_relative_to(source.resolve(strict=False))
+    except (OSError, RuntimeError):
+        source_ready = False
+        state_outside = False
+    if state.exists():
+        state_info = state.lstat()
+        state_ready = stat.S_ISDIR(state_info.st_mode) and not stat.S_ISLNK(state_info.st_mode) and not state_info.st_mode & 0o077
+        if hasattr(os, "getuid"):
+            state_ready = state_ready and state_info.st_uid == os.getuid()
+    else:
+        parent = state.parent
+        state_ready = parent.is_dir() and os.access(parent, os.W_OK)
+    checks = {
+        "source_local_directory": source_ready,
+        "git_metadata_detected": source is not None and (source / ".git").exists(),
+        "state_root_outside_source": state_outside,
+        "state_root_private_or_creatable": state_ready,
+        "python_3_12_or_newer": sys.version_info >= (3, 12),
+        "static_adapter_phase1a": True,
+        "draft_schema_packaged": schema.is_file(),
+        "responses_connector_configured": ResponsesConnector.from_environment() is not None,
+        "executor_available": False,
+        "protected_key_store_enabled": False,
+        "local_api_available": False,
+    }
+    payload = {
+        "schema_version": "phase1a-1",
+        "operation": "doctor",
+        "checks": checks,
+        "capabilities": {
+            "inspect": checks["source_local_directory"] and checks["state_root_outside_source"],
+            "audit": checks["source_local_directory"] and checks["state_root_outside_source"],
+            "draft_unverified": checks["responses_connector_configured"] and checks["draft_schema_packaged"] and checks["state_root_private_or_creatable"],
+            "draft_verified": False,
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    else:
+        for name, ready in checks.items():
+            typer.echo(f"{'PASS' if ready else 'MISS'}  {name}")
+        typer.echo("Phase 1A supports unverified Draft only. No executor is configured by this phase.")
+    if (
+        not checks["source_local_directory"]
+        or not checks["state_root_outside_source"]
+        or not checks["state_root_private_or_creatable"]
+        or not checks["python_3_12_or_newer"]
+        or not checks["draft_schema_packaged"]
+    ):
+        raise typer.Exit(code=2)
+
+
+@app.command("inspect")
+def inspect_command(
+    source: Annotated[str, typer.Argument()],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inventory a local source without mutation, execution, or egress."""
+    _execute_command("inspect", source, json_output)
+
+
+@app.command("audit")
+def audit_command(
+    source: Annotated[str, typer.Argument()],
+    policy: Annotated[Path | None, typer.Option("--policy")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Perform deterministic static analysis without executing repository code."""
+    if policy is not None:
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {
+                        "schema_version": "phase1a-1",
+                        "status": "failed",
+                        "error": {
+                            "code": "audit_external_policy_unsupported",
+                            "category": "unsupported",
+                            "retryable": False,
+                            "safe_message": "Phase 1A Audit is local-only.",
+                            "next_action": "Remove --policy or use Draft with an exact egress manifest.",
+                        },
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
                 )
             )
-        recorder.emit(CallsiteStatusEvent(callsite_id=callsite.callsite_id, status="done"))
-    _write_registry(root, registry)
-    compiled = sum(verdict.status == "COMPILED" for verdict in verdicts)
-    kept = len(verdicts) - compiled
-    baseline_cost = sum((event.estimated_cost_usd or 0.0) for event in recorded)
-    compiled_cost = sum((event.estimated_cost_usd or 0.0) for event in recorded if any(verdict.callsite_id == event.callsite_id and verdict.status == "COMPILED" for verdict in verdicts))
-    reduction = compiled_cost / baseline_cost * 100 if baseline_cost else 0.0
-    recorder.emit(DoneEvent(totals=DoneTotals(callsites=len(verdicts), compiled=compiled, kept=kept, est_monthly_savings_usd=0.0, pipeline_cost_reduction_pct=round(reduction, 2))))
-    recorder.close()
+        else:
+            typer.echo("error: audit_external_policy_unsupported", err=True)
+            typer.echo("Phase 1A Audit is local-only. Remove --policy or use Draft with an exact egress manifest.", err=True)
+        raise typer.Exit(code=3)
+    _execute_command("audit", source, json_output)
+
+
+@app.command("draft")
+def draft_command(
+    source: Annotated[str, typer.Argument()],
+    policy: Annotated[Path | None, typer.Option("--policy")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Request an explicitly unverified patch under an exact egress manifest."""
+    _execute_command("draft", source, json_output, policy=policy)
 
 
 @app.command()
-def accept(callsite_id: str, repo: Annotated[Path, typer.Option("--repo")] = Path(".")) -> None:
-    """Explicitly enable a COMPILED_WITH_DIFFS registry entry."""
-    root = repo.resolve()
-    registry = _read_registry(root)
-    entries = registry.get("callsites", {})
-    if not isinstance(entries, dict) or callsite_id not in entries:
-        raise typer.BadParameter(f"unknown callsite {callsite_id}")
-    entry = entries[callsite_id]
-    if not isinstance(entry, dict) or entry.get("accepted_verdict") not in {"COMPILED", "COMPILED_WITH_DIFFS"}:
-        raise typer.BadParameter(f"callsite {callsite_id} has no acceptable verdict")
-    entry["enabled"] = True
-    _write_registry(root, registry)
+def status(
+    run_id: Annotated[str | None, typer.Argument()] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Read one persisted safe run projection."""
+    state = _state_root(json_output)
+    try:
+        result = load_run(state, run_id) if run_id is not None else load_latest_run(state)
+    except (OSError, ValueError):
+        typer.echo("error: run_not_found", err=True)
+        raise typer.Exit(code=9)
+    _emit(result, json_output, preserve_run_exit=False)
 
 
 @app.command()
-def disable(callsite_id: str, repo: Annotated[Path, typer.Option("--repo")] = Path(".")) -> None:
-    """Immediately route one callsite back to the original model."""
-    root = repo.resolve()
-    registry = _read_registry(root)
-    entries = registry.get("callsites", {})
-    if not isinstance(entries, dict) or callsite_id not in entries:
-        raise typer.BadParameter(f"unknown callsite {callsite_id}")
-    entry = entries[callsite_id]
-    if not isinstance(entry, dict):
-        raise typer.BadParameter(f"invalid registry entry for {callsite_id}")
-    entry["enabled"] = False
-    _write_registry(root, registry)
+def report(
+    run_id: Annotated[str, typer.Argument()],
+    format: Annotated[str, typer.Option("--format")] = "json",
+) -> None:
+    """Render the frozen Phase 1A safe JSON or Markdown projection."""
+    if format not in {"json", "md"}:
+        raise typer.BadParameter("--format must be json or md")
+    state = _state_root(False)
+    try:
+        result = load_run(state, run_id)
+    except (OSError, ValueError):
+        typer.echo("error: run_not_found", err=True)
+        raise typer.Exit(code=9)
+    typer.echo(render_report(result, format), nl=False)
 
 
 @app.command("scan")
-def scan_cmd(
-    repo: Annotated[str, typer.Argument()],
-    out: Annotated[Path, typer.Option("--out")] = Path("."),
+def scan_alias(
+    source: Annotated[str, typer.Argument()],
+    out: Annotated[Path | None, typer.Option("--out")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Audit ANY repo for LLM callsites and print the report. No traffic, no synthesis, no verdict."""
-    import subprocess
-
-    from .contracts import AuditReport
-    from .scan import build_command
-
-    schema_path = _audit_schema_path()
-    out_resolved = out.resolve()
-    out_path = out_resolved / "audit.json" if out_resolved.is_dir() else out_resolved
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    audit_prompt = (
-        "Audit this repository for OpenAI or other LLM API callsites (responses.create, "
-        "chat.completions.create, or equivalents). Return the required JSON. For each callsite set kind "
-        "to structured, classifier, or freeform; eligibility to candidate for low-entropy structured or "
-        "classification calls and keep_model for freeform generation or vision; sample_count 0; and a "
-        "short reason. Do not decide a verdict and never inspect a sealed holdout."
-    )
-    checkout: TemporaryDirectory[str] | None = None
-    try:
-        if _remote_url(repo):
-            parsed = urlparse(repo)
-            if parsed.username is not None or parsed.password is not None:
-                raise ValueError("remote repository URL must not contain credentials")
-            checkout = TemporaryDirectory(prefix="promptectomy-scan-")
-            root = Path(checkout.name) / "repo"
-            subprocess.run(["git", "clone", "--depth", "1", "--", repo, str(root)], capture_output=True, text=True, check=True, timeout=120)
+    """Deprecated alias for local Inspect."""
+    parsed = urlparse(source)
+    if parsed.scheme:
+        if parsed.username is not None or parsed.password is not None:
+            typer.echo("scan failed: remote repository URL must not contain credentials", err=True)
         else:
-            root = Path(repo).resolve()
-            if not root.is_dir():
-                raise ValueError(f"repository does not exist: {root}")
-        subprocess.run(build_command(root, schema_path, out_path), input=audit_prompt, text=True, capture_output=True, check=True, timeout=180)
-        report = AuditReport.model_validate_json(out_path.read_text(encoding="utf-8"))
-    except (subprocess.SubprocessError, ValueError, OSError) as exc:
-        typer.echo(f"scan failed: {type(exc).__name__}: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
-    finally:
-        if checkout is not None:
-            checkout.cleanup()
-    typer.echo(report.model_dump_json(indent=2))
+            typer.echo("scan failed: remote_source_unsupported", err=True)
+        raise typer.Exit(code=1)
+    if out is not None:
+        typer.echo("scan failed: --out is disabled; use report <run-id> --format json", err=True)
+        raise typer.Exit(code=2)
+    _execute_command("inspect", Path(source), json_output)
+
+
+def _legacy_disabled(code: str, next_command: str) -> None:
+    typer.echo(f"error: {code}", err=True)
+    typer.echo(f"The hackathon mutation and execution path is disabled. Use {next_command}.", err=True)
+    raise typer.Exit(code=4)
 
 
 @app.command()
-def doctor(repo: Annotated[Path, typer.Argument()] = Path(".")) -> None:
-    """Check whether a local checkout is ready for scan, compile, and live reporting."""
-    root = repo.resolve()
-    checks = {
-        "local checkout": root.is_dir(),
-        "Git repository": (root / ".git").exists(),
-        "Codex CLI": shutil.which("codex") is not None,
-        "captured ledger": (root / ".promptectomy" / "ledger.jsonl").exists(),
-        "packaged compile schema": _audit_schema_path().exists(),
-        "event log": (root / ".promptectomy" / "run" / "events.ndjson").exists(),
-    }
-    for name, ready in checks.items():
-        typer.echo(f"{'PASS' if ready else 'MISS'}  {name}")
-    if not all(checks.values()):
-        raise typer.Exit(code=1)
+def run(source: Annotated[Path, typer.Argument()] = Path(".")) -> None:
+    """Return a typed migration error for the unsafe hackathon command."""
+    _ = source
+    _legacy_disabled("legacy_run_disabled", "inspect, audit, or draft")
+
+
+@app.command()
+def accept(callsite_id: Annotated[str, typer.Argument()], repo: Annotated[Path, typer.Option("--repo")] = Path(".")) -> None:
+    """Return a typed migration error for prototype hot-swap activation."""
+    _ = (callsite_id, repo)
+    _legacy_disabled("legacy_accept_disabled", "review the unverified candidate report")
+
+
+@app.command()
+def disable(callsite_id: Annotated[str, typer.Argument()], repo: Annotated[Path, typer.Option("--repo")] = Path(".")) -> None:
+    """Return a typed migration error for prototype hot-swap state."""
+    _ = (callsite_id, repo)
+    _legacy_disabled("legacy_disable_disabled", "inspect or audit")
 
 
 @app.command()
 def serve(
-    repo: Annotated[Path, typer.Argument()] = Path("."),
+    source: Annotated[Path, typer.Argument()] = Path("."),
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 4320,
 ) -> None:
-    """Serve the persisted run and live SSE stream for the dashboard."""
+    """Return a typed migration error for the recorded replay bridge."""
+    _ = (source, port)
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise typer.BadParameter("--host must be a loopback address; network serving is not supported")
-    import uvicorn
-
-    from .server import create_app
-
-    root = repo.resolve()
-    event_path = root / ".promptectomy" / "run" / "events.ndjson"
-    display_host = f"[{host}]" if ":" in host else host
-    typer.echo(f"events: http://{display_host}:{port}/events")
-    typer.echo(f"dashboard: http://127.0.0.1:4319/?live=http://{display_host}:{port}/events")
-    uvicorn.run(create_app(event_path), host=host, port=port)
+    _legacy_disabled("legacy_serve_disabled", "status or report")
 
 
 if __name__ == "__main__":

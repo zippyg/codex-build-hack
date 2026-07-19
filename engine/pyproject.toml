@@ -1,10 +1,11 @@
 [project]
 name = "promptectomy"
 version = "0.1.0"
-description = "Codex removes the LLM calls that should be code, and proves it against traffic it never saw."
+description = "Local-first, non-mutating analysis and unverified patch drafts for supported LLM callsites."
 requires-python = ">=3.12"
 dependencies = [
     "openai==2.46.0",
+    "httpx>=0.28,<1",
     "pydantic>=2.9",
     "typer>=0.15",
     "deepdiff>=8.0",

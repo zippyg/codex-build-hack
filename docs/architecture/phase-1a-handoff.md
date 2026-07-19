@@ -1,6 +1,6 @@
 # Phase 1A implementation handoff
 
-Status: ready for a separate implementation goal, not started
+Status: implemented and accepted on 19 July 2026; see `phase-1a-evidence.md`
 Prepared: 18 July 2026
 Boundary: safe non-mutating Python reference behavior and unverified patch artifacts only
 

@@ -16,7 +16,7 @@ Deliver PROMPTECTOMY stable v1 from the accepted Phase 0 design through verified
 
 - [x] Phase 0: accepted product, architecture, security, contract, UX, test, and governance decisions.
 - [x] Phase 0T: create and push the implementation branch, commit planning only, prove inherited baseline, establish this ledger.
-- [ ] Phase 1A: honest non-mutating Python commands and unverified patch artifacts. In progress.
+- [x] Phase 1A: honest non-mutating Python commands and unverified patch artifacts.
 - [ ] Phase 1B: accepted isolated executor.
 - [ ] Phase 1C: hostile clean-install acceptance.
 - [ ] Phase 2: Contract v2, durable state/artifacts, local API, and reports.
@@ -37,6 +37,14 @@ Deliver PROMPTECTOMY stable v1 from the accepted Phase 0 design through verified
 - Engine baseline: `uv sync --frozen`, 30 pytest tests passed with one third-party Starlette deprecation warning.
 - UI baseline: frozen Bun install, TypeScript, and Next.js production build passed. The first Playwright attempt was contaminated by a pre-existing dev server/build collision; after terminating that verified repo-local dev server, the full rerun passed 10/10.
 - Test-generated screenshot drift was restored because it was created by this baseline run. The protected user diff remains the only working-tree change.
+
+## Phase 1A receipt
+
+- The Python conformance oracle implements typed `doctor`, `inspect`, `audit`, `draft`, `status`, and `report` behavior without target mutation or repository/generated-code execution.
+- Draft uses only the direct no-tool Responses boundary and can create only private `unverified` candidates under an exact egress manifest.
+- The hostile synthetic matrix, Git-state receipts, privacy canaries, connector/schema limits, legacy-path gates, and wheel packaging checks pass: 73 pytest tests, 0 failures, 0 skipped.
+- A fresh Python 3.12 wheel install passed help, doctor, inspect, status, report, and packaged-schema checks. The final artifact receipt is in `docs/architecture/phase-1a-evidence.md`.
+- Architecture, diff, and security findings were reproduced and closed. No Phase 1B executor work started.
 
 ## Execution rule
 

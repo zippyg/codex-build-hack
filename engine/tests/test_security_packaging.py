@@ -114,7 +114,7 @@ def test_cleanup_rejects_mismatched_branch_before_git(tmp_path: Path) -> None:
 def test_bundled_schema_assets_are_importable() -> None:
     assets = files("promptectomy.schema_assets")
 
-    for name in ("audit-v1.json", "synthesis-result-v1.json", "verdict-v1.json"):
+    for name in ("audit-v1.json", "draft-candidate-v1.json", "synthesis-result-v1.json", "verdict-v1.json"):
         schema = assets.joinpath(name)
         assert schema.is_file()
         assert json.loads(schema.read_text(encoding="utf-8"))["type"] == "object"
