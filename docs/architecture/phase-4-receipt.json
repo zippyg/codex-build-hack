@@ -1,0 +1,137 @@
+{
+  "receipt_id": "receipt_sha256_6a3e9e970a29a87dc1fb29f59e23c455f1d66028878f16552f1a70c530fc1919",
+  "records": [
+    {
+      "result_digest": "sha256:58637ec4ff2918b73a68666a373f84e992fc4cb41f270eeda3016cc2cfc06dda",
+      "status": "passed",
+      "suite_id": "ARCH"
+    },
+    {
+      "result_digest": "sha256:802069be33a9409280c842c11adee931f800038be821022dfa6e2a8cbd962092",
+      "status": "passed",
+      "suite_id": "BACKUP-DELETE"
+    },
+    {
+      "result_digest": "sha256:2f0feb466957d6ee19cbca950017e6a06a628c9205dac555ae7023adb864133c",
+      "status": "passed",
+      "suite_id": "BUNDLE"
+    },
+    {
+      "result_digest": "sha256:1c2074206530f6b09f93ab929eba7d7e7ec2b005e3db0a3faba64a499fdb52d6",
+      "status": "passed",
+      "suite_id": "CAP-NODE"
+    },
+    {
+      "result_digest": "sha256:11c46f9eb8e3d890575c21becacc1efa3a4463d2a033fe19234165422c103ce0",
+      "status": "passed",
+      "suite_id": "CAP-NORMALIZE"
+    },
+    {
+      "result_digest": "sha256:6bb3e2a6258cfd436a1cc98823e0e2fb6ab1440320ba197cf647977374337afd",
+      "status": "passed",
+      "suite_id": "CAP-PY"
+    },
+    {
+      "result_digest": "sha256:88909ddcc7c3133129d56bd118e58e6306b35b0fe94c82812e0273ad153fe51a",
+      "status": "passed",
+      "suite_id": "DISC-DYNAMIC"
+    },
+    {
+      "result_digest": "sha256:535896848407f17f886b85c63c4f41282e24fcb33037f5735622cfeebf45ed74",
+      "status": "passed",
+      "suite_id": "DISC-GOLDEN"
+    },
+    {
+      "result_digest": "sha256:16d163d2c940b6a5d0941c9b46e7b2028a0ea4d3dd5a308a2ddf8a30c3472071",
+      "status": "passed",
+      "suite_id": "DISC-PY"
+    },
+    {
+      "result_digest": "sha256:648eff98065ea28a4ef2eae7fa80008a92d177df7dcf28b5f394799d3e6dd88b",
+      "status": "passed",
+      "suite_id": "DISC-TS"
+    },
+    {
+      "result_digest": "sha256:3ef25f4513f8c83469e8587a4b286f1428cc47b4ab63e935d248193796c84bf3",
+      "status": "passed",
+      "suite_id": "EGRESS"
+    },
+    {
+      "result_digest": "sha256:7e7812e10193fb148f0d4e6f948ab2db96cb5a93a75265fdfedacc5d94dbab20",
+      "status": "unsupported",
+      "suite_id": "GIT-HTTPS"
+    },
+    {
+      "result_digest": "sha256:ba469475dc30b109ea65cb879c75daad8349b9c61ce1596664b1252322bbd73e",
+      "status": "passed",
+      "suite_id": "GIT-LOCAL"
+    },
+    {
+      "result_digest": "sha256:a51e00fb317e6f99afbf020330243567d4a71bf982dbcd04cee8e961951d1835",
+      "status": "unsupported",
+      "suite_id": "GIT-SSH-BROKER"
+    },
+    {
+      "result_digest": "sha256:778d1a92c5eb1fae3f7579553487a5e0f713875a9e732eeb509185e4e4f39b7f",
+      "status": "unsupported",
+      "suite_id": "KEYSTORE-PERSISTENT"
+    },
+    {
+      "result_digest": "sha256:b3bed51872af2134e0c59155e7e3c79dc404312f66c85cadcc6da2998f3b8019",
+      "status": "passed",
+      "suite_id": "NONMUTATION"
+    },
+    {
+      "result_digest": "sha256:a4fb110f17f558c681df363b2499e9ee66d595fd3027e65e965aa20f922a0c98",
+      "status": "passed",
+      "suite_id": "OTLP-GRPC"
+    },
+    {
+      "result_digest": "sha256:b7cddd2521a22bdd4b991164f6c7f0add95312303963b0c17d950120b7473079",
+      "status": "passed",
+      "suite_id": "OTLP-HTTP"
+    },
+    {
+      "result_digest": "sha256:dd440bb3b5a78ddce318899e8ad0e027d16b280d155289324bcc09ae712b8d3b",
+      "status": "passed",
+      "suite_id": "OTLP-MAPPING"
+    },
+    {
+      "result_digest": "sha256:f2f2f88146c95fce6d2287e3b5025bb3d63ebc4880527f869224c372a89d5a3d",
+      "status": "passed",
+      "suite_id": "PATH"
+    },
+    {
+      "result_digest": "sha256:0375aeb7a16a2ba158042b47af710888e2da90964ce89dd7c85f8d08faf803fa",
+      "status": "passed",
+      "suite_id": "PRIV-CANARY"
+    },
+    {
+      "result_digest": "sha256:9eb1b9fd3a2a0be081017f0e563ae1046a665750a33b15a8cadc6d96c1db1f08",
+      "status": "passed",
+      "suite_id": "PRIV-DEL"
+    },
+    {
+      "result_digest": "sha256:78e16d085119b321204fe1de5375bebff3bdeed7a92b0302fed6f8bed0baebf9",
+      "status": "passed",
+      "suite_id": "PROTECTED-DIGEST"
+    },
+    {
+      "result_digest": "sha256:dcf5ab5dbcdd13e824f196bd26bd9740e8a276dc72de42ecbc61e41667a794a1",
+      "status": "passed",
+      "suite_id": "SOURCE-STATUS"
+    },
+    {
+      "result_digest": "sha256:21581b6021cb7cfad5b9f9ad28d538e20f9d5edd1a5eba4e5497c534b98d61ce",
+      "status": "passed",
+      "suite_id": "TREE-SITTER-PINNED"
+    },
+    {
+      "result_digest": "sha256:87e4f92a068065331c31d4406ac875ec91f02ab91ecccbeec66c1195b4b5e359",
+      "status": "passed",
+      "suite_id": "WHEEL-CLEAN"
+    }
+  ],
+  "schema_version": "promptectomy.phase4-evidence.v1",
+  "source_head": "99f9bc9c7f40a78696ce43a40e8d983f25c7faad"
+}

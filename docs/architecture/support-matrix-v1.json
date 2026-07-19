@@ -1,0 +1,271 @@
+{
+  "cells": [
+    {
+      "capability": "repository_acquisition",
+      "cell_id": "acquisition_local",
+      "evidence": [
+        "GIT-LOCAL",
+        "PATH",
+        "NONMUTATION"
+      ],
+      "language": "language_neutral",
+      "level": "L0",
+      "limitation": null,
+      "operation": "immutable_snapshot",
+      "provider": "local",
+      "state": "stable"
+    },
+    {
+      "capability": "repository_acquisition",
+      "cell_id": "acquisition_archive",
+      "evidence": [
+        "ARCH",
+        "PATH",
+        "NONMUTATION"
+      ],
+      "language": "language_neutral",
+      "level": "L0",
+      "limitation": null,
+      "operation": "validated_snapshot",
+      "provider": "ustar",
+      "state": "stable"
+    },
+    {
+      "capability": "repository_acquisition",
+      "cell_id": "acquisition_bundle",
+      "evidence": [
+        "BUNDLE",
+        "PATH",
+        "NONMUTATION"
+      ],
+      "language": "language_neutral",
+      "level": "L0",
+      "limitation": null,
+      "operation": "validated_snapshot",
+      "provider": "source_bundle",
+      "state": "stable"
+    },
+    {
+      "capability": "static_discovery",
+      "cell_id": "python_responses_discovery",
+      "evidence": [
+        "DISC-PY",
+        "DISC-GOLDEN",
+        "DISC-DYNAMIC"
+      ],
+      "language": "python",
+      "level": "L1",
+      "limitation": null,
+      "operation": "responses.create_parse_declared_surface",
+      "provider": "openai",
+      "state": "stable"
+    },
+    {
+      "capability": "static_discovery",
+      "cell_id": "typescript_responses_discovery",
+      "evidence": [
+        "DISC-TS",
+        "DISC-GOLDEN",
+        "DISC-DYNAMIC",
+        "TREE-SITTER-PINNED"
+      ],
+      "language": "typescript_javascript",
+      "level": "L1",
+      "limitation": null,
+      "operation": "responses.create_parse_declared_surface",
+      "provider": "openai",
+      "state": "stable"
+    },
+    {
+      "capability": "metadata_normalization",
+      "cell_id": "metadata_normalization",
+      "evidence": [
+        "CAP-NORMALIZE",
+        "PRIV-CANARY"
+      ],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": null,
+      "operation": "bounded_content_free_record",
+      "provider": "openai",
+      "state": "stable"
+    },
+    {
+      "capability": "metadata_only_capture",
+      "cell_id": "python_runtime_capture",
+      "evidence": [
+        "CAP-PY",
+        "PRIV-CANARY"
+      ],
+      "language": "python",
+      "level": "L2",
+      "limitation": null,
+      "operation": "responses_runtime_adapter",
+      "provider": "openai",
+      "state": "stable"
+    },
+    {
+      "capability": "metadata_only_capture",
+      "cell_id": "node_runtime_capture",
+      "evidence": [
+        "CAP-NODE",
+        "PRIV-CANARY"
+      ],
+      "language": "node",
+      "level": "L2",
+      "limitation": null,
+      "operation": "responses_runtime_adapter",
+      "provider": "openai",
+      "state": "stable"
+    },
+    {
+      "capability": "evidence_import",
+      "cell_id": "otlp_http_json",
+      "evidence": [
+        "OTLP-HTTP",
+        "OTLP-MAPPING",
+        "PRIV-CANARY"
+      ],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": null,
+      "operation": "offline_trace_export_import",
+      "provider": "otlp_http_json",
+      "state": "stable"
+    },
+    {
+      "capability": "evidence_import",
+      "cell_id": "otlp_grpc_protobuf",
+      "evidence": [
+        "OTLP-GRPC",
+        "OTLP-MAPPING",
+        "PRIV-CANARY"
+      ],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": null,
+      "operation": "offline_trace_export_import",
+      "provider": "otlp_grpc_protobuf",
+      "state": "stable"
+    },
+    {
+      "capability": "data_egress",
+      "cell_id": "egress_manifest",
+      "evidence": [
+        "EGRESS",
+        "PRIV-CANARY"
+      ],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": null,
+      "operation": "authority_complete_manifest_preview",
+      "provider": "approved_destination",
+      "state": "stable"
+    },
+    {
+      "capability": "retention_deletion",
+      "cell_id": "local_deletion",
+      "evidence": [
+        "PRIV-DEL",
+        "BACKUP-DELETE"
+      ],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": null,
+      "operation": "reference_aware_deletion_receipt",
+      "provider": "local_tool_storage",
+      "state": "stable"
+    },
+    {
+      "capability": "repository_acquisition",
+      "cell_id": "acquisition_https",
+      "evidence": [],
+      "language": "language_neutral",
+      "level": "L0",
+      "limitation": "The Git process is neutralized, but clone disk usage is not yet kernel-bounded.",
+      "operation": "no_checkout_snapshot",
+      "provider": "git_https",
+      "state": "unsupported"
+    },
+    {
+      "capability": "repository_acquisition",
+      "cell_id": "acquisition_ssh_broker",
+      "evidence": [],
+      "language": "language_neutral",
+      "level": "L0",
+      "limitation": "Broker attestation and controlled private-repository acceptance are not complete.",
+      "operation": "no_checkout_snapshot",
+      "provider": "git_ssh_broker",
+      "state": "unsupported"
+    },
+    {
+      "capability": "protected_storage",
+      "cell_id": "persistent_protected_storage",
+      "evidence": [],
+      "language": "language_neutral",
+      "level": "L2",
+      "limitation": "The envelope primitive exists, but no supported OS key-store adapter is integrated.",
+      "operation": "authenticated_envelope",
+      "provider": "os_key_store",
+      "state": "unsupported"
+    },
+    {
+      "capability": "static_discovery",
+      "cell_id": "other_language_semantics",
+      "evidence": [],
+      "language": "other",
+      "level": "L0",
+      "limitation": "Other languages receive inventory only until a public adapter conformance suite passes.",
+      "operation": "responses",
+      "provider": "openai",
+      "state": "unsupported"
+    },
+    {
+      "capability": "static_discovery",
+      "cell_id": "other_provider_semantics",
+      "evidence": [],
+      "language": "python_typescript_javascript",
+      "level": "L0",
+      "limitation": "Stable v1 supports OpenAI Responses only.",
+      "operation": "provider_operations",
+      "provider": "other",
+      "state": "unsupported"
+    },
+    {
+      "capability": "isolated_evaluation",
+      "cell_id": "candidate_evaluation",
+      "evidence": [],
+      "language": "python_typescript_javascript",
+      "level": "L3",
+      "limitation": "Phase 5 owns the hidden-holdout and independent evaluation gates.",
+      "operation": "candidate_behavior",
+      "provider": "openai",
+      "state": "experimental"
+    },
+    {
+      "capability": "patch_generation",
+      "cell_id": "patch_receipt",
+      "evidence": [],
+      "language": "python_typescript_javascript",
+      "level": "L4",
+      "limitation": "Phase 5 owns stable L4 evaluation and receipt gates.",
+      "operation": "reviewable_patch_tests_receipt",
+      "provider": "openai",
+      "state": "experimental"
+    },
+    {
+      "capability": "repository_integration",
+      "cell_id": "integration",
+      "evidence": [],
+      "language": "all",
+      "level": "L5",
+      "limitation": "L5 is not part of the initial stable local release.",
+      "operation": "apply_or_merge",
+      "provider": "all",
+      "state": "unsupported"
+    }
+  ],
+  "phase": 4,
+  "receipt_id": "receipt_sha256_6a3e9e970a29a87dc1fb29f59e23c455f1d66028878f16552f1a70c530fc1919",
+  "schema_version": "promptectomy.support-matrix.v1"
+}
