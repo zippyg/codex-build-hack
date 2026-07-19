@@ -59,6 +59,7 @@ BOUND_PATHS = (
     "rust/Cargo.lock",
     "rust/Cargo.toml",
     "rust/crates/promptectomy-acquisition",
+    "rust/crates/promptectomy-protected-store",
 )
 _DURATION = re.compile(r"\b\d+(?:\.\d+)?(?:ms|s)\b")
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")

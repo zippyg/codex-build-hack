@@ -1,9 +1,8 @@
-use std::collections::BTreeSet;
-use std::ffi::OsString;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-#[cfg(unix)]
+use std::path::Path;
+#[cfg(all(test, unix))]
+use std::{collections::BTreeSet, ffi::OsString, path::PathBuf, time::Duration};
+#[cfg(all(unix, test))]
 use std::{
     io::Read,
     process::{Command, Stdio},
@@ -15,13 +14,19 @@ use std::{
     time::Instant,
 };
 
+#[cfg(all(test, unix))]
+use crate::AcquisitionLimits;
+#[cfg(all(test, unix))]
 use crate::path_policy::{insert_collision_key, normalize_path, selected};
+#[cfg(all(test, unix))]
 use crate::snapshot::{CollectedMaterial, MaterializedFile, add_quota, unique_work_directory};
-use crate::{AcquisitionError, AcquisitionLimits, AcquisitionSource};
+use crate::{AcquisitionError, AcquisitionSource};
 
+#[cfg(all(test, unix))]
 const GIT_PROGRAM: &str = "/usr/bin/git";
+#[cfg(all(test, unix))]
 const MAX_SAFE_VERSION_BYTES: usize = 128;
-const ALLOWED_HTTPS_HOSTS: [&str; 5] = [
+const ALLOWED_REMOTE_HOSTS: [&str; 5] = [
     "bitbucket.org",
     "codeberg.org",
     "git.sr.ht",
@@ -29,8 +34,9 @@ const ALLOWED_HTTPS_HOSTS: [&str; 5] = [
     "gitlab.com",
 ];
 
+#[cfg(all(test, unix))]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GitCommandPlan {
+pub(crate) struct GitCommandPlan {
     pub program: PathBuf,
     pub arguments: Vec<OsString>,
     pub environment: Vec<(OsString, OsString)>,
@@ -39,26 +45,31 @@ pub struct GitCommandPlan {
     pub timeout: Duration,
 }
 
+#[cfg(all(test, unix))]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GitOutput {
+pub(crate) struct GitOutput {
     pub success: bool,
     pub stdout: Vec<u8>,
 }
 
-pub trait GitRunner: Send + Sync {
+#[cfg(all(test, unix))]
+pub(crate) trait GitRunner: Send + Sync {
     fn run(&self, plan: &GitCommandPlan) -> Result<GitOutput, AcquisitionError>;
 }
 
+#[cfg(all(test, unix))]
 #[derive(Clone, Copy, Debug, Default)]
-pub struct SystemGitRunner;
+pub(crate) struct SystemGitRunner;
 
+#[cfg(all(test, unix))]
 impl GitRunner for SystemGitRunner {
     fn run(&self, plan: &GitCommandPlan) -> Result<GitOutput, AcquisitionError> {
         run_system_git(plan)
     }
 }
 
-pub fn plan_git_clone(
+#[cfg(all(test, unix))]
+pub(crate) fn plan_git_clone(
     source: &AcquisitionSource,
     neutral_root: &Path,
     destination: &Path,
@@ -129,6 +140,7 @@ pub fn plan_git_clone(
     })
 }
 
+#[cfg(all(test, unix))]
 pub(crate) fn collect_remote(
     storage_root: &Path,
     source: &AcquisitionSource,
@@ -209,6 +221,7 @@ pub(crate) fn collect_remote(
     Ok(material)
 }
 
+#[cfg(all(test, unix))]
 fn materialize_inventory(
     source: &AcquisitionSource,
     neutral: &Path,
@@ -261,6 +274,7 @@ fn materialize_inventory(
     Ok((files, submodule_count, lfs_pointer_count, exclusions))
 }
 
+#[cfg(all(test, unix))]
 fn repository_command<const N: usize>(
     source: &AcquisitionSource,
     neutral_root: &Path,
@@ -301,6 +315,7 @@ fn repository_command<const N: usize>(
     })
 }
 
+#[cfg(all(test, unix))]
 fn neutral_arguments(
     allowed_protocol: &str,
     hooks: &str,
@@ -338,6 +353,7 @@ fn neutral_arguments(
     arguments
 }
 
+#[cfg(all(test, unix))]
 fn neutral_environment(
     source: &AcquisitionSource,
     neutral_root: &Path,
@@ -378,7 +394,7 @@ fn neutral_environment(
     environment
 }
 
-fn validate_https(url: &str) -> Result<(String, String), AcquisitionError> {
+pub(crate) fn validate_https(url: &str) -> Result<(String, String), AcquisitionError> {
     if !url.is_ascii()
         || !url.starts_with("https://")
         || url.len() > 2048
@@ -400,14 +416,49 @@ fn validate_https(url: &str) -> Result<(String, String), AcquisitionError> {
     {
         return Err(AcquisitionError::LocatorDenied);
     }
-    let host = validate_public_host(authority)?;
-    if !ALLOWED_HTTPS_HOSTS.contains(&host.as_str()) {
-        return Err(AcquisitionError::LocatorDenied);
-    }
+    let host = validate_allowed_remote_host(authority)?;
     Ok((url.to_owned(), format!("https://{host}/<redacted>")))
 }
 
-fn validate_public_host(authority: &str) -> Result<String, AcquisitionError> {
+pub(crate) fn canonical_https_host(url: &str) -> Result<String, AcquisitionError> {
+    validate_https(url)?;
+    let authority = url[8..]
+        .split_once('/')
+        .ok_or(AcquisitionError::LocatorDenied)?
+        .0;
+    Ok(authority
+        .strip_suffix(":443")
+        .unwrap_or(authority)
+        .to_owned())
+}
+
+pub(crate) fn validate_remote_source(source: &AcquisitionSource) -> Result<(), AcquisitionError> {
+    match source {
+        AcquisitionSource::Https { url, revision } => {
+            validate_revision(revision)?;
+            validate_https(url)?;
+        }
+        AcquisitionSource::SshBrokered {
+            display_host,
+            opaque_handle,
+            revision,
+            broker_executable,
+            broker_request,
+        } => {
+            validate_revision(revision)?;
+            validate_ssh_broker(
+                display_host,
+                opaque_handle,
+                broker_executable,
+                broker_request,
+            )?;
+        }
+        _ => return Err(AcquisitionError::LocatorDenied),
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_public_host(authority: &str) -> Result<String, AcquisitionError> {
     let host = if let Some((host, port)) = authority.rsplit_once(':') {
         if port != "443" {
             return Err(AcquisitionError::LocatorDenied);
@@ -438,7 +489,15 @@ fn validate_public_host(authority: &str) -> Result<String, AcquisitionError> {
     Ok(host)
 }
 
-fn validate_revision(revision: &str) -> Result<(), AcquisitionError> {
+pub(crate) fn validate_allowed_remote_host(authority: &str) -> Result<String, AcquisitionError> {
+    let host = validate_public_host(authority)?;
+    if !ALLOWED_REMOTE_HOSTS.contains(&host.as_str()) {
+        return Err(AcquisitionError::LocatorDenied);
+    }
+    Ok(host)
+}
+
+pub(crate) fn validate_revision(revision: &str) -> Result<(), AcquisitionError> {
     if revision.is_empty()
         || revision.len() > 200
         || revision.starts_with('-')
@@ -459,7 +518,7 @@ fn validate_ssh_broker(
     broker_executable: &Path,
     broker_request: &Path,
 ) -> Result<(), AcquisitionError> {
-    validate_public_host(display_host).map_err(|_| AcquisitionError::InvalidSshBroker)?;
+    validate_allowed_remote_host(display_host).map_err(|_| AcquisitionError::InvalidSshBroker)?;
     if opaque_handle.is_empty()
         || opaque_handle.len() > 128
         || !opaque_handle
@@ -496,6 +555,7 @@ fn safe_regular_file(path: &Path, executable: bool) -> bool {
 }
 
 #[derive(Debug)]
+#[cfg(all(test, unix))]
 struct GitTreeEntry {
     path: String,
     kind: &'static str,
@@ -504,6 +564,7 @@ struct GitTreeEntry {
     executable: bool,
 }
 
+#[cfg(all(test, unix))]
 fn parse_inventory(
     output: &[u8],
     selected_roots: &[String],
@@ -553,12 +614,14 @@ fn parse_inventory(
     Ok(entries)
 }
 
+#[cfg(all(test, unix))]
 fn parse_object_size(value: &str) -> Result<u64, AcquisitionError> {
     value
         .parse()
         .map_err(|_| AcquisitionError::InvalidGitOutput)
 }
 
+#[cfg(all(test, unix))]
 fn valid_object_id(value: &str) -> bool {
     matches!(value.len(), 40 | 64)
         && value
@@ -566,6 +629,7 @@ fn valid_object_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
+#[cfg(all(test, unix))]
 fn parse_commit(output: &[u8]) -> Result<String, AcquisitionError> {
     let value = std::str::from_utf8(output)
         .map_err(|_| AcquisitionError::InvalidGitOutput)?
@@ -576,6 +640,7 @@ fn parse_commit(output: &[u8]) -> Result<String, AcquisitionError> {
     Ok(value.to_owned())
 }
 
+#[cfg(all(test, unix))]
 fn safe_git_version(output: &[u8]) -> Result<String, AcquisitionError> {
     let value = std::str::from_utf8(output)
         .map_err(|_| AcquisitionError::InvalidGitOutput)?
@@ -591,6 +656,7 @@ fn safe_git_version(output: &[u8]) -> Result<String, AcquisitionError> {
     Ok(value.to_owned())
 }
 
+#[cfg(all(test, unix))]
 fn require_success(output: GitOutput) -> Result<GitOutput, AcquisitionError> {
     if !output.success {
         return Err(AcquisitionError::GitFailed);
@@ -598,7 +664,7 @@ fn require_success(output: GitOutput) -> Result<GitOutput, AcquisitionError> {
     Ok(output)
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, test))]
 fn run_system_git(plan: &GitCommandPlan) -> Result<GitOutput, AcquisitionError> {
     use std::os::unix::process::CommandExt;
 
@@ -665,12 +731,7 @@ fn run_system_git(plan: &GitCommandPlan) -> Result<GitOutput, AcquisitionError> 
     })
 }
 
-#[cfg(not(unix))]
-fn run_system_git(_: &GitCommandPlan) -> Result<GitOutput, AcquisitionError> {
-    Err(AcquisitionError::GitPlatformUnsupported)
-}
-
-#[cfg(unix)]
+#[cfg(all(unix, test))]
 fn capture_bounded<R: Read + Send + 'static>(
     mut reader: R,
     max_output_bytes: usize,
@@ -697,7 +758,7 @@ fn capture_bounded<R: Read + Send + 'static>(
     })
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, test))]
 fn kill_process_group(process_id: u32) {
     let kill = if Path::new("/bin/kill").exists() {
         "/bin/kill"

@@ -153,6 +153,7 @@ def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests
 def test_receipt_staleness_boundary_covers_phase4_ci_and_line_endings() -> None:
     assert ".github/workflows/phase4.yml" in phase4_acceptance.BOUND_PATHS
     assert ".gitattributes" in phase4_acceptance.BOUND_PATHS
+    assert "rust/crates/promptectomy-protected-store" in phase4_acceptance.BOUND_PATHS
 
 
 def test_tracked_output_verification_rejects_stale_bound_paths(

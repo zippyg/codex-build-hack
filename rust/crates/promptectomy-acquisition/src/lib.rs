@@ -2,6 +2,7 @@ mod archive;
 mod digest;
 mod git;
 mod path_policy;
+mod remote;
 mod snapshot;
 
 use std::fs::{File, Metadata};
@@ -11,7 +12,16 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub use git::{GitCommandPlan, GitOutput, GitRunner, SystemGitRunner, plan_git_clone};
+#[cfg(all(test, unix))]
+use git::{GitCommandPlan, GitOutput, GitRunner, SystemGitRunner, plan_git_clone};
+#[cfg(test)]
+pub(crate) use remote::RemoteGitResult;
+pub use remote::{
+    BrokerBinding, ControlAttestation, EgressDestination, REMOTE_GIT_ATTESTATION_VERSION,
+    REMOTE_GIT_MANIFEST_VERSION, RemoteBackendPolicy, RemoteBackendProfile,
+    RemoteCleanupAttestation, RemoteCredentialPolicy, RemoteGitAttestation, RemoteGitManifest,
+    build_remote_git_manifest,
+};
 pub use snapshot::{AcquiredSnapshot, SnapshotReceipt};
 
 pub const ACQUISITION_PROTOCOL_VERSION: &str = "phase4-acquisition-1";
@@ -86,6 +96,7 @@ pub struct AcquisitionLimits {
     pub max_file_bytes: u64,
     pub max_path_bytes: usize,
     pub max_archive_bytes: u64,
+    pub max_remote_work_bytes: u64,
     pub max_git_output_bytes: usize,
     pub max_git_seconds: u64,
 }
@@ -98,6 +109,7 @@ impl Default for AcquisitionLimits {
             max_file_bytes: 64 * 1024 * 1024,
             max_path_bytes: 1024,
             max_archive_bytes: 512 * 1024 * 1024,
+            max_remote_work_bytes: 1024 * 1024 * 1024,
             max_git_output_bytes: 4 * 1024 * 1024,
             max_git_seconds: 300,
         }
@@ -111,6 +123,7 @@ impl AcquisitionLimits {
             || self.max_file_bytes == 0
             || self.max_path_bytes == 0
             || self.max_archive_bytes == 0
+            || self.max_remote_work_bytes < self.max_total_bytes
             || self.max_git_output_bytes == 0
             || self.max_git_seconds == 0
             || self.max_file_bytes > self.max_total_bytes
@@ -155,15 +168,34 @@ impl Acquirer {
         &self,
         request: &AcquisitionRequest,
     ) -> Result<AcquiredSnapshot, AcquisitionError> {
-        if matches!(
-            request.source,
-            AcquisitionSource::Https { .. } | AcquisitionSource::SshBrokered { .. }
-        ) {
-            return Err(AcquisitionError::RemoteGitUnavailable);
-        }
-        self.acquire_with_runner(request, &SystemGitRunner)
+        request.limits.validate()?;
+        validate_authority(request)?;
+        let selected_roots = path_policy::normalize_selected_roots(
+            &request.selected_roots,
+            request.limits.max_path_bytes,
+        )?;
+        let material = match &request.source {
+            AcquisitionSource::Local { path, dirty_policy } => {
+                if *dirty_policy != LocalDirtyPolicy::IncludeTrackedAndUntracked {
+                    return Err(AcquisitionError::LocalGitPolicyUnavailable);
+                }
+                snapshot::collect_local(&self.storage_root, path, &selected_roots, &request.limits)?
+            }
+            AcquisitionSource::Https { .. } | AcquisitionSource::SshBrokered { .. } => {
+                git::validate_remote_source(&request.source)?;
+                return Err(AcquisitionError::RemoteGitUnavailable);
+            }
+            AcquisitionSource::Archive { path, format } => {
+                archive::collect_archive(path, *format, &selected_roots, &request.limits)?
+            }
+            AcquisitionSource::Bundle { path } => {
+                archive::collect_bundle(path, &selected_roots, &request.limits)?
+            }
+        };
+        snapshot::publish(&self.storage_root, request, selected_roots, material)
     }
 
+    #[cfg(all(test, unix))]
     pub(crate) fn acquire_with_runner(
         &self,
         request: &AcquisitionRequest,
@@ -264,13 +296,19 @@ pub enum AcquisitionError {
     GitPlatformUnsupported,
     #[error("remote Git acquisition requires the bounded broker integration")]
     RemoteGitUnavailable,
+    #[error("the remote Git acquisition manifest is invalid")]
+    InvalidRemoteManifest,
+    #[error("the remote Git acquisition attestation is invalid")]
+    InvalidRemoteAttestation,
+    #[error("the remote Git source bundle exceeds its declared bound or digest")]
+    RemoteBundleExceeded,
     #[error("the snapshot could not be published safely")]
     SnapshotPublishFailed,
     #[error("the snapshot bytes failed integrity verification")]
     SnapshotIntegrityFailed,
 }
 
-fn validate_authority(request: &AcquisitionRequest) -> Result<(), AcquisitionError> {
+pub(crate) fn validate_authority(request: &AcquisitionRequest) -> Result<(), AcquisitionError> {
     if !request.authority_id.starts_with("auth_")
         || request.authority_id.len() > 128
         || !is_digest(&request.authority_digest)
@@ -280,7 +318,7 @@ fn validate_authority(request: &AcquisitionRequest) -> Result<(), AcquisitionErr
     Ok(())
 }
 
-fn is_digest(value: &str) -> bool {
+pub(crate) fn is_digest(value: &str) -> bool {
     value.len() == 71
         && value.starts_with("sha256:")
         && value[7..]

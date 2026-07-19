@@ -406,6 +406,7 @@ fn verify_existing(
         max_file_bytes: u64::MAX / 2,
         max_path_bytes: 4096,
         max_archive_bytes: u64::MAX / 2,
+        max_remote_work_bytes: u64::MAX / 2,
         max_git_output_bytes: usize::MAX / 2,
         max_git_seconds: u64::MAX / 2,
     };

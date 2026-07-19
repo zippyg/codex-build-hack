@@ -1,5 +1,8 @@
+#[cfg(unix)]
 use std::fs;
 use std::path::Path;
+#[cfg(unix)]
+use std::path::PathBuf;
 #[cfg(unix)]
 use std::sync::Mutex;
 
@@ -26,6 +29,7 @@ fn request(source: AcquisitionSource) -> AcquisitionRequest {
             max_file_bytes: 8 * 1024,
             max_path_bytes: 256,
             max_archive_bytes: 32 * 1024,
+            max_remote_work_bytes: 64 * 1024,
             max_git_output_bytes: 16 * 1024,
             max_git_seconds: 5,
         },
@@ -36,6 +40,76 @@ fn local_source(path: &Path) -> AcquisitionSource {
     AcquisitionSource::Local {
         path: path.to_path_buf(),
         dirty_policy: LocalDirtyPolicy::IncludeTrackedAndUntracked,
+    }
+}
+
+fn remote_backend_policy() -> RemoteBackendPolicy {
+    RemoteBackendPolicy {
+        profile: RemoteBackendProfile::OrbstackMacosArm64V1,
+        image_digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            .to_owned(),
+        runner_digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            .to_owned(),
+        egress_proxy_digest:
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333".to_owned(),
+    }
+}
+
+fn test_domain_digest(domain: &str, value: &[u8]) -> String {
+    let mut payload = Vec::with_capacity(domain.len() + value.len() + 1);
+    payload.extend_from_slice(domain.as_bytes());
+    payload.push(0);
+    payload.extend_from_slice(value);
+    crate::digest::digest_string(&payload)
+}
+
+fn accepted_remote_attestation(
+    manifest: &RemoteGitManifest,
+    source_bundle: &[u8],
+) -> RemoteGitAttestation {
+    RemoteGitAttestation {
+        schema_version: REMOTE_GIT_ATTESTATION_VERSION.to_owned(),
+        manifest_digest: manifest.manifest_digest.clone(),
+        backend_profile: manifest.backend.profile,
+        image_digest: manifest.backend.image_digest.clone(),
+        runner_digest: manifest.backend.runner_digest.clone(),
+        egress_proxy_digest: manifest.backend.egress_proxy_digest.clone(),
+        git_binary_digest:
+            "sha256:4444444444444444444444444444444444444444444444444444444444444444".to_owned(),
+        broker: manifest.broker.clone(),
+        observed_destinations: vec![manifest.destination.clone()],
+        writable_mount_limit_bytes: manifest.max_remote_work_bytes,
+        unaccounted_writable_mounts: 0,
+        kernel_disk_limit: ControlAttestation::Passed,
+        root_read_only: ControlAttestation::Passed,
+        exact_egress_only: ControlAttestation::Passed,
+        git_execution_neutralized: ControlAttestation::Passed,
+        credentials_isolated: ControlAttestation::Passed,
+        resolved_commit: "0123456789abcdef0123456789abcdef01234567".to_owned(),
+        source_bundle_digest: test_domain_digest("remote-source-bundle", source_bundle),
+        cleanup: RemoteCleanupAttestation {
+            worker_removed: ControlAttestation::Passed,
+            proxy_removed: ControlAttestation::Passed,
+            network_removed: ControlAttestation::Passed,
+            broker_relay_removed: ControlAttestation::Passed,
+            orphan_check: ControlAttestation::Passed,
+        },
+    }
+}
+
+trait AttestationTestExt {
+    fn model_copy_for_test<F>(self, update: F) -> Self
+    where
+        F: FnOnce(&mut Self);
+}
+
+impl AttestationTestExt for RemoteGitAttestation {
+    fn model_copy_for_test<F>(mut self, update: F) -> Self
+    where
+        F: FnOnce(&mut Self),
+    {
+        update(&mut self);
+        self
     }
 }
 
@@ -289,6 +363,7 @@ fn bundle_digest_and_quota_fail_closed() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn https_policy_rejects_credentials_queries_redirect_ambiguity_and_local_hosts() {
     let limits = AcquisitionLimits::default();
@@ -315,6 +390,241 @@ fn https_policy_rejects_credentials_queries_redirect_ambiguity_and_local_hosts()
     }
 }
 
+#[test]
+fn remote_https_manifest_is_content_bound_redacted_and_exact_destination_only() {
+    let source = AcquisitionSource::Https {
+        url: "https://github.com/private-owner/private-repository.git".to_owned(),
+        revision: "refs/heads/main".to_owned(),
+    };
+    let mut acquisition = request(source);
+    acquisition.selected_roots = vec!["src".to_owned()];
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("remote manifest");
+
+    assert_eq!(manifest.source_kind, SourceKind::HttpsRemote);
+    assert_eq!(manifest.destination.host, "github.com");
+    assert_eq!(manifest.destination.port, 443);
+    assert_eq!(manifest.redacted_locator, "https://github.com/<redacted>");
+    assert_eq!(manifest.egress_policy, "exact_destination_only");
+    assert_eq!(manifest.checkout_policy, "no_checkout");
+    assert_eq!(manifest.selected_roots, ["src"]);
+    assert_eq!(manifest.manifest_digest, manifest.computed_digest());
+    manifest.validate().expect("valid manifest");
+    let encoded = serde_json::to_string(&manifest).expect("manifest json");
+    assert!(!encoded.contains("private-owner"));
+    assert!(!encoded.contains("private-repository"));
+
+    let second = build_remote_git_manifest(&acquisition, remote_backend_policy())
+        .expect("deterministic manifest");
+    assert_eq!(second, manifest);
+
+    let mut unapproved = manifest;
+    unapproved.destination.host = "attacker.example".to_owned();
+    unapproved.redacted_locator = "https://attacker.example/<redacted>".to_owned();
+    unapproved.manifest_digest = unapproved.computed_digest();
+    assert_eq!(
+        unapproved.validate(),
+        Err(AcquisitionError::InvalidRemoteManifest)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn remote_ssh_manifest_binds_broker_bytes_without_persisting_paths_or_content() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().expect("temp dir");
+    let broker = temp.path().join("broker-private-name");
+    let broker_request = temp.path().join("request-private-name");
+    let request_canary = b"PRIVATE_REPOSITORY_LOCATOR_CANARY";
+    fs::write(&broker, b"#!/bin/sh\nexit 1\n").expect("broker");
+    fs::set_permissions(&broker, fs::Permissions::from_mode(0o700)).expect("broker mode");
+    fs::write(&broker_request, request_canary).expect("broker request");
+    fs::set_permissions(&broker_request, fs::Permissions::from_mode(0o600)).expect("request mode");
+    let acquisition = request(AcquisitionSource::SshBrokered {
+        display_host: "github.com".to_owned(),
+        opaque_handle: "private_handle_canary".to_owned(),
+        revision: "main".to_owned(),
+        broker_executable: broker.clone(),
+        broker_request: broker_request.clone(),
+    });
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("broker manifest");
+
+    assert_eq!(manifest.destination.port, 22);
+    assert_eq!(
+        manifest.credential_policy,
+        RemoteCredentialPolicy::SshAgentBrokerGrant
+    );
+    assert!(manifest.broker.is_some());
+    manifest.validate().expect("valid manifest");
+    let encoded = serde_json::to_string(&manifest).expect("manifest json");
+    for protected in [
+        broker.to_string_lossy().as_ref(),
+        broker_request.to_string_lossy().as_ref(),
+        "private_handle_canary",
+        std::str::from_utf8(request_canary).expect("ascii canary"),
+    ] {
+        assert!(!encoded.contains(protected), "leaked {protected}");
+    }
+
+    fs::write(&broker_request, b"changed request").expect("changed request");
+    let changed = build_remote_git_manifest(&acquisition, remote_backend_policy())
+        .expect("changed broker manifest");
+    assert_ne!(changed.manifest_digest, manifest.manifest_digest);
+    assert_ne!(changed.broker, manifest.broker);
+}
+
+#[cfg(unix)]
+#[test]
+fn remote_ssh_manifest_rejects_unapproved_hosts_and_unsafe_broker_files() {
+    use std::os::unix::fs::{PermissionsExt as _, symlink};
+
+    let temp = TempDir::new().expect("temp dir");
+    let broker = temp.path().join("broker");
+    let broker_request = temp.path().join("request");
+    fs::write(&broker, b"#!/bin/sh\nexit 1\n").expect("broker");
+    fs::set_permissions(&broker, fs::Permissions::from_mode(0o700)).expect("broker mode");
+    fs::write(&broker_request, b"opaque request").expect("request");
+    fs::set_permissions(&broker_request, fs::Permissions::from_mode(0o600)).expect("request mode");
+
+    let source = |display_host: &str, executable: PathBuf| {
+        request(AcquisitionSource::SshBrokered {
+            display_host: display_host.to_owned(),
+            opaque_handle: "request_abc123".to_owned(),
+            revision: "main".to_owned(),
+            broker_executable: executable,
+            broker_request: broker_request.clone(),
+        })
+    };
+    assert_eq!(
+        build_remote_git_manifest(
+            &source("attacker.example", broker.clone()),
+            remote_backend_policy()
+        ),
+        Err(AcquisitionError::InvalidSshBroker)
+    );
+
+    let symlinked = temp.path().join("broker-link");
+    symlink(&broker, &symlinked).expect("broker symlink");
+    assert_eq!(
+        build_remote_git_manifest(&source("github.com", symlinked), remote_backend_policy()),
+        Err(AcquisitionError::InvalidSshBroker)
+    );
+}
+
+#[test]
+fn remote_attestation_structure_requires_every_isolation_egress_and_cleanup_control() {
+    let acquisition = request(AcquisitionSource::Https {
+        url: "https://github.com/example/project.git".to_owned(),
+        revision: "main".to_owned(),
+    });
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("remote manifest");
+    let bundle = b"synthetic bounded source bundle";
+    let accepted = accepted_remote_attestation(&manifest, bundle);
+    accepted
+        .validate_structure_for(&manifest)
+        .expect("structurally valid attestation");
+    RemoteGitResult {
+        source_bundle: bundle.to_vec(),
+        attestation: accepted.clone(),
+    }
+    .validate_structure_for(&manifest)
+    .expect("structurally valid result");
+
+    let rejected = [
+        accepted
+            .clone()
+            .model_copy_for_test(|value| value.kernel_disk_limit = ControlAttestation::Failed),
+        accepted
+            .clone()
+            .model_copy_for_test(|value| value.root_read_only = ControlAttestation::Failed),
+        accepted
+            .clone()
+            .model_copy_for_test(|value| value.exact_egress_only = ControlAttestation::Failed),
+        accepted.clone().model_copy_for_test(|value| {
+            value.git_execution_neutralized = ControlAttestation::Failed;
+        }),
+        accepted.clone().model_copy_for_test(|value| {
+            value.credentials_isolated = ControlAttestation::Failed;
+        }),
+        accepted.clone().model_copy_for_test(|value| {
+            value.unaccounted_writable_mounts = 1;
+        }),
+        accepted.clone().model_copy_for_test(|value| {
+            value.observed_destinations = vec![EgressDestination {
+                host: "gitlab.com".to_owned(),
+                port: 443,
+            }];
+        }),
+        accepted.clone().model_copy_for_test(|value| {
+            value.cleanup.orphan_check = ControlAttestation::Failed;
+        }),
+    ];
+    for attestation in rejected {
+        assert_eq!(
+            attestation.validate_structure_for(&manifest),
+            Err(AcquisitionError::InvalidRemoteAttestation)
+        );
+    }
+}
+
+#[test]
+fn remote_result_rejects_bundle_tamper_and_oversize() {
+    let mut acquisition = request(AcquisitionSource::Https {
+        url: "https://github.com/example/project.git".to_owned(),
+        revision: "main".to_owned(),
+    });
+    acquisition.limits.max_archive_bytes = 32;
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("remote manifest");
+    let bundle = b"safe";
+    let attestation = accepted_remote_attestation(&manifest, bundle);
+
+    assert_eq!(
+        RemoteGitResult {
+            source_bundle: b"tampered".to_vec(),
+            attestation: attestation.clone(),
+        }
+        .validate_structure_for(&manifest),
+        Err(AcquisitionError::RemoteBundleExceeded)
+    );
+    assert_eq!(
+        RemoteGitResult {
+            source_bundle: vec![0; 33],
+            attestation,
+        }
+        .validate_structure_for(&manifest),
+        Err(AcquisitionError::RemoteBundleExceeded)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn production_remote_path_validates_input_then_fails_before_host_git() {
+    let temp = TempDir::new().expect("temp dir");
+    let acquirer = Acquirer::new(temp.path().join("state")).expect("acquirer");
+    let denied = request(AcquisitionSource::Https {
+        url: "https://token@github.com/example/project.git".to_owned(),
+        revision: "main".to_owned(),
+    });
+    assert_eq!(
+        acquirer.acquire(&denied),
+        Err(AcquisitionError::LocatorDenied)
+    );
+
+    let accepted_input = request(AcquisitionSource::Https {
+        url: "https://github.com/example/project.git".to_owned(),
+        revision: "main".to_owned(),
+    });
+    assert_eq!(
+        acquirer.acquire(&accepted_input),
+        Err(AcquisitionError::RemoteGitUnavailable)
+    );
+}
+
+#[cfg(unix)]
 #[test]
 fn public_git_plan_clears_inherited_execution_surfaces() {
     let temp = TempDir::new().expect("temp dir");
