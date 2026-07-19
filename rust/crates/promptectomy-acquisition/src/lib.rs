@@ -310,7 +310,9 @@ fn read_regular_once(
     if !before.file_type().is_file() || before.file_type().is_symlink() {
         return Err(AcquisitionError::InvalidSourcePath);
     }
-    reject_hardlink(&before)?;
+    if has_unsupported_hardlink(&before) {
+        return Err(AcquisitionError::UnsupportedFileType);
+    }
     if before.len() > limit {
         return Err(quota_error);
     }
@@ -348,17 +350,14 @@ fn read_regular_once(
 }
 
 #[cfg(unix)]
-fn reject_hardlink(metadata: &Metadata) -> Result<(), AcquisitionError> {
+fn has_unsupported_hardlink(metadata: &Metadata) -> bool {
     use std::os::unix::fs::MetadataExt;
-    if metadata.nlink() > 1 {
-        return Err(AcquisitionError::UnsupportedFileType);
-    }
-    Ok(())
+    metadata.nlink() > 1
 }
 
 #[cfg(not(unix))]
-fn reject_hardlink(_: &Metadata) -> Result<(), AcquisitionError> {
-    Ok(())
+fn has_unsupported_hardlink(_: &Metadata) -> bool {
+    false
 }
 
 #[cfg(unix)]
