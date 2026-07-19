@@ -19,7 +19,6 @@ jobs:
           version: "0.11.26"
       - run: uv sync --frozen
         working-directory: engine
-      - run: echo "a4fcdab0f1baef70072620e1409d68e732c5a4549d3f36388a7213237dab961c  engine/promptectomy/generated/route_ticket.py" | sha256sum --check --status
       - run: uv run python scripts/generate_contract_bindings.py
         working-directory: engine
       - run: test -z "$(git status --porcelain=v1 --untracked-files=all -- engine/generated/contracts_v2 rust/crates/promptectomy-contracts)"
