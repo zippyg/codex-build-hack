@@ -1,6 +1,6 @@
 # Phase 3 acceptance evidence
 
-Status: local acceptance passed; release-platform CI pending
+Status: accepted locally and on release-platform CI
 Date: 19 July 2026
 Scope: Rust trusted core, local daemon transport, canonical CLI, isolated adapter protocol, and Python v2 state migration
 
@@ -55,15 +55,18 @@ The machine-readable receipt is [phase-3-receipt.json](phase-3-receipt.json). Th
 - release `doctor` success and typed unsupported exit 3 for Rust repository inspection;
 - protected route source preservation at SHA-256 `a4fcdab0f1baef70072620e1409d68e732c5a4549d3f36388a7213237dab961c`.
 
+[GitHub Actions run 29688503367](https://github.com/zippyg/codex-build-hack/actions/runs/29688503367) then passed on commit `6abcd348eec952ff2e51d92e7c718e1337cbae1e`. Contract generation and the complete locked Rust check, strict Clippy, test, and release benchmark sequence succeeded on `macos-15`, `ubuntu-24.04`, and `windows-2025`.
+
 The protocol child-exit race was then repeated 320 times through the focused supervisor test without a failure. Benchmark values are warm-cache Phase 3 boundary measurements, not the full release performance qualification scheduled for Phase 9. The accepted OCI image remained exactly `sha256:23b8908a955aa2b7eb602845e08b50e1821d072ed67e510580d2392fbffec4f0`.
 
 ## Review findings resolved
 
-The acceptance loop exposed three issues that narrower unit runs had missed:
+The acceptance loop exposed four issues that narrower unit runs had missed:
 
 1. Opening a Python WAL database read-only could still create SQLite sidecars in the source directory. Import now works only from a stable private byte copy and rejects live sidecars without changing them.
 2. A fast nonzero adapter exit could race the protocol EOF and surface as a generic protocol failure. The supervisor now gives the process status a bounded exit-reconciliation window, and the regression is repeated within the test.
 3. macOS Unix socket paths can be shorter than long temporary state paths. The daemon now selects a deterministic private short socket directory when the direct path exceeds the conservative cross-Unix bound, with no TCP fallback.
+4. Windows cannot use Unix-style directory handles for a portable directory fsync, and `FlushFileBuffers` requires a write-capable file handle. The core now retains real directory fsync on Unix, validates the parent boundary on Windows after flushing the actual file, and opens backup files with write authority for their durability flush. The repaired Windows state, migration, import, CAS, and benchmark paths passed the real Windows CI job.
 
 Core and daemon/CLI ownership reviews found no residual P0/P1 after authority, idempotency, import graph, backup/rollback, permission, framing, and restart hardening. Fresh integrated diff, security, and portability reviews were run against the accepted tree before the phase commit; their final disposition is recorded in the Phase 3 agent log.
 

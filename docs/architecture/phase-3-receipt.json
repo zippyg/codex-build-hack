@@ -10,6 +10,18 @@
     "target_code_not_run_in_core_or_clients": true,
     "typed_unsupported_without_fallback": true
   },
+  "ci": {
+    "accepted_at": "2026-07-19T13:22:55Z",
+    "commit": "6abcd348eec952ff2e51d92e7c718e1337cbae1e",
+    "jobs": {
+      "Contract generation": "success",
+      "macos-15": "success",
+      "ubuntu-24.04": "success",
+      "windows-2025": "success"
+    },
+    "run_id": 29688503367,
+    "url": "https://github.com/zippyg/codex-build-hack/actions/runs/29688503367"
+  },
   "contracts": {
     "generated_files": {
       "engine/generated/contracts_v2/python/promptectomy_contracts_v2.py": "b0d1a5a591ad82cefa190b0cf3320c871480365827a17ac8263ee17b9dcba99f",
