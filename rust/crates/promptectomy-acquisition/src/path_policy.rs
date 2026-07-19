@@ -94,6 +94,19 @@ pub(crate) fn selected(path: &str, roots: &[String]) -> bool {
         })
 }
 
+pub(crate) fn may_contain_selected(path: &str, roots: &[String]) -> bool {
+    roots.is_empty()
+        || roots.iter().any(|root| {
+            path == root
+                || root
+                    .strip_prefix(path)
+                    .is_some_and(|rest| rest.starts_with('/'))
+                || path
+                    .strip_prefix(root)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        })
+}
+
 pub(crate) fn insert_collision_key(
     path: &str,
     seen: &mut BTreeSet<String>,

@@ -111,6 +111,30 @@ fn selected_roots_exclude_siblings_and_are_bound_into_identity() {
     assert_eq!(snapshot.receipt.selected_roots, ["src"]);
 }
 
+#[cfg(unix)]
+#[test]
+fn selected_roots_do_not_traverse_unrelated_hostile_siblings() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempDir::new().expect("temp dir");
+    let source = temp.path().join("source");
+    fs::create_dir_all(source.join("src")).expect("src");
+    fs::create_dir_all(source.join("unselected")).expect("unselected");
+    fs::write(source.join("src/lib.rs"), b"pub fn safe() {}\n").expect("source");
+    symlink(
+        temp.path().join("outside"),
+        source.join("unselected/escape"),
+    )
+    .expect("hostile sibling");
+    let acquirer = Acquirer::new(temp.path().join("state")).expect("acquirer");
+    let mut selected = request(local_source(&source));
+    selected.selected_roots = vec!["src".to_owned()];
+
+    let snapshot = acquirer.acquire(&selected).expect("selected snapshot");
+    assert!(snapshot.snapshot_root.join("tree/src/lib.rs").exists());
+    assert!(!snapshot.snapshot_root.join("tree/unselected").exists());
+}
+
 #[test]
 fn storage_and_source_must_be_disjoint() {
     let temp = TempDir::new().expect("temp dir");

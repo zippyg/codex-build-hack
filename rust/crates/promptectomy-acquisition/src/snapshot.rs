@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::digest::{digest_string, hex, sha256};
-use crate::path_policy::{insert_collision_key, normalize_filesystem_relative, selected};
+use crate::path_policy::{
+    insert_collision_key, may_contain_selected, normalize_filesystem_relative, selected,
+};
 use crate::{
     ACQUISITION_PROTOCOL_VERSION, AcquisitionError, AcquisitionLimits, AcquisitionRequest,
     AcquisitionSource, LocalDirtyPolicy, SnapshotReference, SourceKind, read_regular_once,
@@ -176,8 +178,10 @@ fn scan_local(
                 return Err(AcquisitionError::UnsupportedFileType);
             }
             if metadata.file_type().is_dir() {
-                normalize_filesystem_relative(&next_relative, limits.max_path_bytes)?;
-                pending.push(next_relative);
+                let path = normalize_filesystem_relative(&next_relative, limits.max_path_bytes)?;
+                if may_contain_selected(&path, selected_roots) {
+                    pending.push(next_relative);
+                }
                 continue;
             }
             if !metadata.file_type().is_file() {

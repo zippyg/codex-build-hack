@@ -153,6 +153,22 @@ describe("metadata-only Responses capture", () => {
     expect(observations[0]?.flags).toEqual(["asynchronous", "cancellation"]);
   });
 
+  test("an aborted request signal classifies a provider-specific error as cancellation", async () => {
+    const observations: CaptureObservation[] = [];
+    const controller = new AbortController();
+    const error = new Error(CONTENT_CANARY);
+    const captured = captureResponses(callables(async () => Promise.reject(error)), {
+      callsiteId: CALLSITE_ID,
+      registry: registry(),
+      sink: (observation) => observations.push(observation),
+    });
+    controller.abort();
+
+    await expect(captured.create({ signal: controller.signal })).rejects.toBe(error);
+    expect(observations[0]?.status).toBe("cancelled");
+    expect(JSON.stringify(observations)).not.toContain(CONTENT_CANARY);
+  });
+
   test("tracks stream completion, error, and early return exactly once", async () => {
     const observations: CaptureObservation[] = [];
     async function* complete() {

@@ -102,11 +102,11 @@ export type CaptureFlag =
 export type ObservationSink = (observation: CaptureObservation) => void;
 
 export interface ResponsesCallables {
-  create: (...args: unknown[]) => Promise<unknown>;
-  parse: (...args: unknown[]) => Promise<unknown>;
+  create: (...args: any[]) => Promise<unknown>;
+  parse: (...args: any[]) => Promise<unknown>;
 }
 
-export interface CapturedResponses extends ResponsesCallables {}
+export type CapturedResponses = ResponsesCallables;
 
 export interface CaptureOptions {
   readonly callsiteId: string;
@@ -255,7 +255,7 @@ function requestFromArgs(args: readonly unknown[]): Readonly<Record<string, unkn
 }
 
 function cancellation(error: unknown, request: Readonly<Record<string, unknown>>): boolean {
-  if (dataField(request.signal, "aborted") === true) return true;
+  if (request.signal instanceof AbortSignal && request.signal.aborted) return true;
   if (error instanceof DOMException && error.name === "AbortError") return true;
   return error instanceof Error && error.name === "AbortError";
 }
@@ -430,7 +430,11 @@ class CapturedAsyncStream implements AsyncIterableIterator<unknown> {
     try {
       if (!this.#iterator.throw) throw error;
       const result = await this.#iterator.throw(error);
-      this.attempt.finish(cancellation(error, this.attempt.request) ? "cancelled" : "error", undefined, this.#events);
+      this.attempt.finish(
+        cancellation(error, this.attempt.request) ? "cancelled" : "error",
+        undefined,
+        this.#events,
+      );
       return result;
     } catch (caught) {
       this.attempt.finishPreserving(caught, this.#events);
