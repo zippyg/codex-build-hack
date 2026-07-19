@@ -165,16 +165,13 @@
     {
       "capability": "retention_deletion",
       "cell_id": "local_deletion",
-      "evidence": [
-        "PRIV-DEL",
-        "BACKUP-DELETE"
-      ],
+      "evidence": [],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Flat synthetic artifacts are covered, but transactional protected storage, backup references, key destruction, and crash recovery are not complete.",
       "operation": "reference_aware_deletion_receipt",
       "provider": "local_tool_storage",
-      "state": "stable"
+      "state": "experimental"
     },
     {
       "capability": "repository_acquisition",
@@ -266,6 +263,6 @@
     }
   ],
   "phase": 4,
-  "receipt_id": "receipt_sha256_b36e4fa3e0a099f61900afbe1ee264bffdbfb7301125c6592e9964d1cc042444",
+  "receipt_id": "receipt_sha256_4c34e1e3e027e86bc3b76a4a3f3fae586b76539cb7752405190447d4c7c43723",
   "schema_version": "promptectomy.support-matrix.v1"
 }

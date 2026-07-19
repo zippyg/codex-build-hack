@@ -1,18 +1,18 @@
 {
-  "receipt_id": "receipt_sha256_b36e4fa3e0a099f61900afbe1ee264bffdbfb7301125c6592e9964d1cc042444",
+  "receipt_id": "receipt_sha256_4c34e1e3e027e86bc3b76a4a3f3fae586b76539cb7752405190447d4c7c43723",
   "records": [
     {
-      "result_digest": "sha256:58637ec4ff2918b73a68666a373f84e992fc4cb41f270eeda3016cc2cfc06dda",
+      "result_digest": "sha256:b0a37032165e9fb9b1510d70f9d3ac6dfdbb4b0b08121502f790910d6ef4d34f",
       "status": "passed",
       "suite_id": "ARCH"
     },
     {
-      "result_digest": "sha256:802069be33a9409280c842c11adee931f800038be821022dfa6e2a8cbd962092",
-      "status": "passed",
+      "result_digest": "sha256:e9c0c17d816ce303214dbc9da528881a66dee98df0ad33112940ff97019da3e6",
+      "status": "unsupported",
       "suite_id": "BACKUP-DELETE"
     },
     {
-      "result_digest": "sha256:2f0feb466957d6ee19cbca950017e6a06a628c9205dac555ae7023adb864133c",
+      "result_digest": "sha256:7f029254d4947094e71a22866754f44cb065be6ee2ec27b507d67b1af02aaee4",
       "status": "passed",
       "suite_id": "BUNDLE"
     },
@@ -57,27 +57,27 @@
       "suite_id": "EGRESS"
     },
     {
-      "result_digest": "sha256:7e7812e10193fb148f0d4e6f948ab2db96cb5a93a75265fdfedacc5d94dbab20",
+      "result_digest": "sha256:a817cd26caf38b0ec9eaca9d42ab31532a3862bb1cf0813c4ee55e84b8c8f777",
       "status": "unsupported",
       "suite_id": "GIT-HTTPS"
     },
     {
-      "result_digest": "sha256:ba469475dc30b109ea65cb879c75daad8349b9c61ce1596664b1252322bbd73e",
+      "result_digest": "sha256:af9411775ba73b29ae120a01fd360f769ad50e4693374a124a76f3c43f85ed94",
       "status": "passed",
       "suite_id": "GIT-LOCAL"
     },
     {
-      "result_digest": "sha256:a51e00fb317e6f99afbf020330243567d4a71bf982dbcd04cee8e961951d1835",
+      "result_digest": "sha256:86e4c21a19b4a6493e57e2a8cdc51b196d1df466637d930512bb3581275f0456",
       "status": "unsupported",
       "suite_id": "GIT-SSH-BROKER"
     },
     {
-      "result_digest": "sha256:778d1a92c5eb1fae3f7579553487a5e0f713875a9e732eeb509185e4e4f39b7f",
+      "result_digest": "sha256:90515ccb59bf9edaecdf3420002af85d5ad4325b1f3d3e96762461162fb9f0e9",
       "status": "unsupported",
       "suite_id": "KEYSTORE-PERSISTENT"
     },
     {
-      "result_digest": "sha256:523ce6addf414dfc017d6f1c2176cb64da7fc98930b94ddb777b57f956d6bdba",
+      "result_digest": "sha256:a77085cbbdd9959e61dd1e648e32d6d9a7fa2eacf98f1fcbd92dbcf49041fa47",
       "status": "passed",
       "suite_id": "NONMUTATION"
     },
@@ -97,7 +97,7 @@
       "suite_id": "OTLP-MAPPING"
     },
     {
-      "result_digest": "sha256:f2f2f88146c95fce6d2287e3b5025bb3d63ebc4880527f869224c372a89d5a3d",
+      "result_digest": "sha256:eb73eb02bd3afddb97c91ff3c8b2cf4327b1a5f73097f722bf8e82c55f3f6cc3",
       "status": "passed",
       "suite_id": "PATH"
     },
@@ -107,8 +107,8 @@
       "suite_id": "PRIV-CANARY"
     },
     {
-      "result_digest": "sha256:9eb1b9fd3a2a0be081017f0e563ae1046a665750a33b15a8cadc6d96c1db1f08",
-      "status": "passed",
+      "result_digest": "sha256:ff6383f6d87c722142dffe851b03c7034814f518ff9e153dd7d911f33b005517",
+      "status": "unsupported",
       "suite_id": "PRIV-DEL"
     },
     {
@@ -133,5 +133,5 @@
     }
   ],
   "schema_version": "promptectomy.phase4-evidence.v1",
-  "source_head": "574c2f9525f87fed3d4326f282673bd0e4b15d89"
+  "source_head": "79abbd19feaece08ae2c76923feb673d216b0ecd"
 }
