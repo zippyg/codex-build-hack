@@ -1,14 +1,17 @@
 use std::fs;
 use std::path::Path;
+#[cfg(unix)]
 use std::sync::Mutex;
 
 use tempfile::TempDir;
 
 use super::*;
+#[cfg(unix)]
 use crate::digest::digest_string;
 
 const AUTHORITY_DIGEST: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+#[cfg(unix)]
 const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
 
 fn request(source: AcquisitionSource) -> AcquisitionRequest {
@@ -36,6 +39,7 @@ fn local_source(path: &Path) -> AcquisitionSource {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn local_snapshot_is_content_bound_redacted_and_idempotent() {
     let temp = TempDir::new().expect("temp dir");
@@ -93,6 +97,7 @@ fn existing_snapshot_tamper_fails_integrity_reuse() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn selected_roots_exclude_siblings_and_are_bound_into_identity() {
     let temp = TempDir::new().expect("temp dir");
@@ -135,6 +140,7 @@ fn selected_roots_do_not_traverse_unrelated_hostile_siblings() {
     assert!(!snapshot.snapshot_root.join("tree/unselected").exists());
 }
 
+#[cfg(unix)]
 #[test]
 fn storage_and_source_must_be_disjoint() {
     let temp = TempDir::new().expect("temp dir");
@@ -213,6 +219,7 @@ fn archive_rejects_traversal_links_duplicates_and_bad_checksum() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn tar_archive_and_bundle_publish_identical_content_as_distinct_receipts() {
     let temp = TempDir::new().expect("temp dir");
@@ -255,6 +262,7 @@ fn tar_archive_and_bundle_publish_identical_content_as_distinct_receipts() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn bundle_digest_and_quota_fail_closed() {
     let temp = TempDir::new().expect("temp dir");
@@ -422,6 +430,7 @@ fn brokered_ssh_uses_only_an_opaque_git_locator() {
     assert!(!arguments.contains("github.com"));
 }
 
+#[cfg(unix)]
 #[test]
 fn fake_public_remote_is_inventoried_without_checkout_filters_or_submodules() {
     let temp = TempDir::new().expect("temp dir");
@@ -476,6 +485,7 @@ fn fake_public_remote_is_inventoried_without_checkout_filters_or_submodules() {
     assert_eq!(runner.remaining(), 0);
 }
 
+#[cfg(unix)]
 #[test]
 fn system_remote_acquisition_is_typed_unavailable_until_bounded_broker_exists() {
     let temp = TempDir::new().expect("temp dir");
@@ -487,6 +497,16 @@ fn system_remote_acquisition_is_typed_unavailable_until_bounded_broker_exists() 
         })),
         Err(AcquisitionError::RemoteGitUnavailable)
     );
+}
+
+#[cfg(not(unix))]
+#[test]
+fn private_snapshot_storage_is_typed_unsupported() {
+    let temp = TempDir::new().expect("temp dir");
+    assert!(matches!(
+        Acquirer::new(temp.path().join("state")),
+        Err(AcquisitionError::StoragePermissionUnsupported)
+    ));
 }
 
 #[cfg(unix)]
@@ -508,11 +528,13 @@ fn local_hardlink_is_rejected_as_external_content_risk() {
     );
 }
 
+#[cfg(unix)]
 #[derive(Debug)]
 struct ScriptedRunner {
     outputs: Mutex<Vec<GitOutput>>,
 }
 
+#[cfg(unix)]
 impl ScriptedRunner {
     fn new(mut outputs: Vec<GitOutput>) -> Self {
         outputs.reverse();
@@ -526,6 +548,7 @@ impl ScriptedRunner {
     }
 }
 
+#[cfg(unix)]
 impl GitRunner for ScriptedRunner {
     fn run(&self, _: &GitCommandPlan) -> Result<GitOutput, AcquisitionError> {
         self.outputs

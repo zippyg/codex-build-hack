@@ -1,4 +1,4 @@
-name: Phase 4 adapters
+name: Phase 4 adapters and evidence
 
 on:
   pull_request:
@@ -8,10 +8,14 @@ permissions:
   contents: read
 
 jobs:
-  engine:
-    name: Engine tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+  adapters:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2025]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -19,25 +23,35 @@ jobs:
       - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with:
           version: "0.11.26"
-      - run: uv sync --frozen
-        working-directory: engine
-      - run: uv run pytest -q
-        working-directory: engine
-
-  node-capture:
-    name: Node capture adapter
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: "1.3.10"
+      - run: uv sync --frozen
+        working-directory: engine
+      - run: uv run ruff check .
+        working-directory: engine
+      - run: uv run pytest -q
+        working-directory: engine
       - run: bun install --frozen-lockfile
         working-directory: adapters/node
       - run: bun run typecheck
         working-directory: adapters/node
       - run: bun test
         working-directory: adapters/node
+
+  evidence:
+    name: Receipt and support matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.26"
+      - run: uv sync --frozen
+        working-directory: engine
+      - run: uv run python scripts/phase4_acceptance.py --verify
+        working-directory: engine

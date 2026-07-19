@@ -92,6 +92,7 @@ def _stable(
     provider: str,
     operation: str,
     level: Literal["L0", "L1", "L2", "L3", "L4", "L5"],
+    limitation: str | None = None,
 ) -> SupportCell:
     required = _STABLE_REQUIREMENTS[cell_id]
     missing = sorted(set(required) - evidence)
@@ -106,7 +107,7 @@ def _stable(
         level=level,
         state="stable",
         evidence=required,
-        limitation=None,
+        limitation=limitation,
     )
 
 
@@ -125,6 +126,7 @@ def build_phase4_support_matrix(
             provider="local",
             operation="immutable_snapshot",
             level="L0",
+            limitation="macOS and Linux only; Windows private storage is typed unsupported.",
         ),
         _stable(
             "acquisition_archive",
@@ -134,6 +136,7 @@ def build_phase4_support_matrix(
             provider="ustar",
             operation="validated_snapshot",
             level="L0",
+            limitation="macOS and Linux only; Windows private storage is typed unsupported.",
         ),
         _stable(
             "acquisition_bundle",
@@ -143,6 +146,7 @@ def build_phase4_support_matrix(
             provider="source_bundle",
             operation="validated_snapshot",
             level="L0",
+            limitation="macOS and Linux only; Windows private storage is typed unsupported.",
         ),
     ]
     for language, cell_id in (

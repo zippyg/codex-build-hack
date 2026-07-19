@@ -55,6 +55,8 @@ def test_matrix_publishes_only_evidenced_stable_cells_and_visible_gaps() -> None
     stable = [cell for cell in cells if cell["state"] == "stable"]
     assert len(stable) == 12
     assert all(cell["evidence"] for cell in stable)
+    local = next(cell for cell in stable if cell["cell_id"] == "acquisition_local")
+    assert "Windows" in local["limitation"]
     assert any(cell["cell_id"] == "acquisition_https" and cell["state"] == "unsupported" for cell in cells)
     assert any(cell["cell_id"] == "python_runtime_capture" and cell["state"] == "stable" for cell in cells)
     assert any(cell["cell_id"] == "node_runtime_capture" and cell["state"] == "stable" for cell in cells)

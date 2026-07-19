@@ -16,6 +16,7 @@ from scripts.phase4_acceptance import (
     receipt_document,
     result_digest,
     write_outputs,
+    verify_tracked_outputs,
 )
 
 
@@ -141,3 +142,30 @@ def test_receipt_document_contains_only_content_bound_payload_and_identifier() -
     value = receipt_document(receipt)
     assert set(value) == {"schema_version", "source_head", "records", "receipt_id"}
     assert value["receipt_id"] == receipt.receipt_id()
+
+
+def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests() -> None:
+    assert phase4_acceptance.PROTECTED_DIGEST != phase4_acceptance.PROTECTED_TRACKED_DIGEST
+    assert len(phase4_acceptance.PROTECTED_DIGEST) == 64
+    assert len(phase4_acceptance.PROTECTED_TRACKED_DIGEST) == 64
+
+
+def test_tracked_output_verification_rejects_stale_bound_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    matrix_path = tmp_path / "matrix.json"
+    monkeypatch.setattr(phase4_acceptance, "RECEIPT_PATH", receipt_path)
+    monkeypatch.setattr(phase4_acceptance, "MATRIX_PATH", matrix_path)
+    receipt = build_receipt("a" * 40, _all_evidence())
+    write_outputs(receipt)
+
+    class _Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
+
+    results = iter((_Result(0), _Result(1)))
+    monkeypatch.setattr(phase4_acceptance.subprocess, "run", lambda *args, **kwargs: next(results))
+    with pytest.raises(RuntimeError, match="stale"):
+        verify_tracked_outputs()

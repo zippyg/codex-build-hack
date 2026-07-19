@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import json
 import os
 import re
@@ -25,11 +26,38 @@ from promptectomy.support_matrix_phase4 import (  # noqa: E402
     Phase4EvidenceReceipt,
     build_phase4_support_matrix,
 )
+from promptectomy.contracts_v2 import ContractError, parse_json_strict  # noqa: E402
 
 
 PROTECTED_DIGEST = "a4fcdab0f1baef70072620e1409d68e732c5a4549d3f36388a7213237dab961c"
+PROTECTED_TRACKED_DIGEST = "75944ba99d386798002496ae0ef39bf8d0159f4bb2d2daea57b65009e00a9d8c"
 RECEIPT_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "phase-4-receipt.json"
 MATRIX_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "support-matrix-v1.json"
+BOUND_PATHS = (
+    "adapters/node",
+    "engine/promptectomy/capture_python.py",
+    "engine/promptectomy/discovery_javascript.py",
+    "engine/promptectomy/discovery_models.py",
+    "engine/promptectomy/discovery_python.py",
+    "engine/promptectomy/evidence_phase4.py",
+    "engine/promptectomy/privacy_phase4.py",
+    "engine/promptectomy/reference.py",
+    "engine/promptectomy/reference_contracts.py",
+    "engine/promptectomy/support_matrix_phase4.py",
+    "engine/pyproject.toml",
+    "engine/scripts/phase4_acceptance.py",
+    "engine/tests/fixtures/phase4_discovery",
+    "engine/tests/test_phase4_acceptance.py",
+    "engine/tests/test_phase4_capture_python.py",
+    "engine/tests/test_phase4_discovery.py",
+    "engine/tests/test_phase4_evidence.py",
+    "engine/tests/test_phase4_privacy.py",
+    "engine/tests/test_phase4_support_matrix.py",
+    "engine/uv.lock",
+    "rust/Cargo.lock",
+    "rust/Cargo.toml",
+    "rust/crates/promptectomy-acquisition",
+)
 _DURATION = re.compile(r"\b\d+(?:\.\d+)?(?:ms|s)\b")
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
@@ -218,6 +246,72 @@ def write_outputs(receipt: Phase4EvidenceReceipt) -> tuple[dict[str, object], di
     return receipt_value, matrix
 
 
+def verify_tracked_outputs() -> None:
+    try:
+        receipt_value = parse_json_strict(RECEIPT_PATH.read_bytes())
+        matrix_value = parse_json_strict(MATRIX_PATH.read_bytes())
+    except (OSError, ContractError) as exc:
+        raise RuntimeError("Phase 4 tracked acceptance outputs are missing or invalid") from exc
+    if not isinstance(receipt_value, dict) or set(receipt_value) != {
+        "schema_version",
+        "source_head",
+        "records",
+        "receipt_id",
+    }:
+        raise RuntimeError("Phase 4 tracked receipt shape is invalid")
+    raw_records = receipt_value["records"]
+    if not isinstance(raw_records, list):
+        raise RuntimeError("Phase 4 tracked receipt records are invalid")
+    try:
+        records = tuple(
+            EvidenceRecord(
+                suite_id=record["suite_id"],
+                result_digest=record["result_digest"],
+                status=record["status"],
+            )
+            for record in raw_records
+            if isinstance(record, dict) and set(record) == {"suite_id", "result_digest", "status"}
+        )
+        receipt = Phase4EvidenceReceipt(
+            schema_version=receipt_value["schema_version"],
+            source_head=receipt_value["source_head"],
+            records=records,
+        )
+    except (KeyError, TypeError) as exc:
+        raise RuntimeError("Phase 4 tracked receipt records are invalid") from exc
+    if len(records) != len(raw_records) or receipt.receipt_id() != receipt_value["receipt_id"]:
+        raise RuntimeError("Phase 4 tracked receipt is not content-bound")
+    expected_matrix = json.loads(
+        json.dumps(build_phase4_support_matrix(receipt=receipt, receipt_id=receipt.receipt_id()))
+    )
+    if matrix_value != expected_matrix:
+        raise RuntimeError("Phase 4 tracked support matrix does not match its receipt")
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", receipt.source_head, "HEAD"],
+        cwd=REPOSITORY_ROOT,
+        env={"PATH": os.environ["PATH"]},
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+        check=False,
+    )
+    if ancestor.returncode != 0:
+        raise RuntimeError("Phase 4 tracked receipt source is not an ancestor of HEAD")
+    drift = subprocess.run(
+        ["git", "diff", "--quiet", receipt.source_head, "HEAD", "--", *BOUND_PATHS],
+        cwd=REPOSITORY_ROOT,
+        env={"PATH": os.environ["PATH"]},
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+        check=False,
+    )
+    if drift.returncode != 0:
+        raise RuntimeError("Phase 4 tracked receipt is stale for a bound implementation path")
+
+
 def _pytest(label: str, test_file: str) -> CommandEvidence:
     return run_command(
         label,
@@ -317,7 +411,19 @@ def _clean_install(temporary: Path) -> tuple[CommandEvidence, ...]:
 
 def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
     protected = ENGINE_ROOT / "promptectomy" / "generated" / "route_ticket.py"
-    if file_digest(protected) != PROTECTED_DIGEST:
+    protected_status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--", "engine/promptectomy/generated/route_ticket.py"],
+        cwd=REPOSITORY_ROOT,
+        env={"PATH": os.environ["PATH"]},
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    expected_protected_digest = PROTECTED_DIGEST if protected_status.stdout.strip() else PROTECTED_TRACKED_DIGEST
+    if protected_status.returncode != 0 or file_digest(protected) != expected_protected_digest:
         raise RuntimeError("protected route file digest changed before Phase 4 acceptance")
     source_head_result = run_command(
         "source-head",
@@ -426,10 +532,10 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
         raise RuntimeError("Phase 4 source HEAD changed during conformance")
     if status_after.stdout != status_before.stdout or staged_after.stdout != staged_before.stdout:
         raise RuntimeError("Phase 4 conformance changed source or index status")
-    if file_digest(protected) != PROTECTED_DIGEST:
+    if file_digest(protected) != expected_protected_digest:
         raise RuntimeError("protected route file digest changed during Phase 4 acceptance")
     source_guard_value = {
-        "protected_digest": PROTECTED_DIGEST,
+        "protected_digest_valid": True,
         "protected_staged": False,
         "source_head_unchanged": True,
         "source_status_unchanged": True,
@@ -447,6 +553,13 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verify", action="store_true")
+    arguments = parser.parse_args()
+    if arguments.verify:
+        verify_tracked_outputs()
+        print('{"phase":4,"status":"verified"}')
+        return 0
     source_head, evidence = run_conformance()
     receipt = build_receipt(source_head, evidence)
     receipt_value, matrix = write_outputs(receipt)
