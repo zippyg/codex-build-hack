@@ -1,5 +1,5 @@
 {
-  "receipt_id": "receipt_sha256_4c34e1e3e027e86bc3b76a4a3f3fae586b76539cb7752405190447d4c7c43723",
+  "receipt_id": "receipt_sha256_1616d1560b190c772d0bef8d30fbed2d47424361b368e681295743696c5b4c7d",
   "records": [
     {
       "result_digest": "sha256:b0a37032165e9fb9b1510d70f9d3ac6dfdbb4b0b08121502f790910d6ef4d34f",
@@ -133,5 +133,5 @@
     }
   ],
   "schema_version": "promptectomy.phase4-evidence.v1",
-  "source_head": "79abbd19feaece08ae2c76923feb673d216b0ecd"
+  "source_head": "695e37960a4177308d296fcc88ed3c73d2021be1"
 }
