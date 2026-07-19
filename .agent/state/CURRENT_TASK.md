@@ -1,6 +1,17 @@
 # Current Task
-Submit PROMPTECTOMY to the London competition (task #13). The build is complete, tested, hardened, and
-pushed. Remaining, day-of: (1) get the organiser's exact submission link (announced ~10:40) - the only
-external blocker; (2) optional: record a 60-90s backup screen capture of the dashboard demo; (3) fresh-
-start rehearsal of the 90s script (docs/SUBMISSION.md); (4) submit by 16:30. The dashboard auto-plays
-the honest recorded run (ui/fixtures/demo-run.ndjson) via `cd ui && bun dev` -> http://localhost:4319.
+
+## Phase 1A: honest non-mutating Python reference
+
+Implement `docs/architecture/phase-1a-handoff.md` against the existing Python package.
+
+Required outcome:
+
+- explicit `doctor`, `inspect`, `audit`, `draft`, `status`, and JSON/Markdown report semantics;
+- Inspect, Audit, and Draft preserve target tree and Git state across all terminal paths;
+- no repository/generated/test/dependency code executes on these general paths;
+- direct no-tool OpenAI Responses connector with schema-constrained output and fail-closed unavailable behavior;
+- unverified patch/test artifacts only in private tool-owned storage;
+- typed terminal states/errors, safe append-only events, support/unsupported accounting, receipt/retention/cleanup metadata;
+- clean installed-wheel, privacy-canary, path-confinement, zero-work, cancellation, and legacy-path reachability tests.
+
+Do not start Phase 1B executor work. Preserve `engine/promptectomy/generated/route_ticket.py` exactly.

@@ -17,5 +17,5 @@ Cross-tool guidance (Claude Code + Codex both read this).
 ## Memory & logs
 - Curated memory: .agent/memory/  · raw logs: .agent/logs/YYYY-MM-DD/
 - Active work: .agent/state/ACTIVE_PLAN.md, CURRENT_TASK.md
-- Current takeover truth: .agent/state/STATUS_2026-07-18.md
+- Current takeover truth: .agent/state/STATUS_2026-07-19.md
 - Hackathon source of truth: docs/source/2026-07-18-builder-guide.md.
