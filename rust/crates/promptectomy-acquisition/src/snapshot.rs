@@ -483,12 +483,8 @@ fn set_private_directory(path: &Path) -> Result<(), AcquisitionError> {
 }
 
 #[cfg(not(unix))]
-fn set_private_directory(path: &Path) -> Result<(), AcquisitionError> {
-    let metadata = fs::symlink_metadata(path).map_err(|_| AcquisitionError::UnsafeStorageRoot)?;
-    if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
-        return Err(AcquisitionError::UnsafeStorageRoot);
-    }
-    Ok(())
+fn set_private_directory(_: &Path) -> Result<(), AcquisitionError> {
+    Err(AcquisitionError::StoragePermissionUnsupported)
 }
 
 #[cfg(unix)]
@@ -500,12 +496,8 @@ fn set_snapshot_file(path: &Path, executable: bool) -> Result<(), AcquisitionErr
 }
 
 #[cfg(not(unix))]
-fn set_snapshot_file(path: &Path, _: bool) -> Result<(), AcquisitionError> {
-    let mut permissions = fs::symlink_metadata(path)
-        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?
-        .permissions();
-    permissions.set_readonly(true);
-    fs::set_permissions(path, permissions).map_err(|_| AcquisitionError::SnapshotPublishFailed)
+fn set_snapshot_file(_: &Path, _: bool) -> Result<(), AcquisitionError> {
+    Err(AcquisitionError::StoragePermissionUnsupported)
 }
 
 #[cfg(unix)]
@@ -516,12 +508,8 @@ fn set_read_only_directory(path: &Path) -> Result<(), AcquisitionError> {
 }
 
 #[cfg(not(unix))]
-fn set_read_only_directory(path: &Path) -> Result<(), AcquisitionError> {
-    let mut permissions = fs::symlink_metadata(path)
-        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?
-        .permissions();
-    permissions.set_readonly(true);
-    fs::set_permissions(path, permissions).map_err(|_| AcquisitionError::SnapshotPublishFailed)
+fn set_read_only_directory(_: &Path) -> Result<(), AcquisitionError> {
+    Err(AcquisitionError::StoragePermissionUnsupported)
 }
 
 fn make_tree_read_only(root: &Path) -> Result<(), AcquisitionError> {
@@ -565,20 +553,6 @@ fn make_tree_writable(root: &Path) -> Result<(), std::io::Error> {
         }
     }
     #[cfg(not(unix))]
-    if root.exists() {
-        let mut permissions = fs::metadata(root)?.permissions();
-        permissions.set_readonly(false);
-        fs::set_permissions(root, permissions)?;
-        for entry in fs::read_dir(root)? {
-            let entry = entry?;
-            if entry.file_type()?.is_dir() {
-                make_tree_writable(&entry.path())?;
-            } else {
-                let mut permissions = entry.metadata()?.permissions();
-                permissions.set_readonly(false);
-                fs::set_permissions(entry.path(), permissions)?;
-            }
-        }
-    }
+    fs::metadata(root)?;
     Ok(())
 }

@@ -301,7 +301,13 @@ impl AdapterSupervisor {
     ) -> Result<ProtocolMessage, SupervisorError> {
         match outcome {
             SupervisorOutcome::Response(response) => {
-                terminate_process_group(child, pid, true).await?;
+                match timeout(EXIT_RACE_GRACE, child.wait()).await {
+                    Ok(status) => {
+                        let _status = status.map_err(|_| SupervisorError::Termination)?;
+                        terminate_process_group_after_exit(pid)?;
+                    }
+                    Err(_) => terminate_process_group(child, pid, true).await?,
+                }
                 let stderr = finish_stderr(stderr_task).await?;
                 if stderr.truncated {
                     return Err(SupervisorError::StderrTooLarge {

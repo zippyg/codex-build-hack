@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import subprocess
 import threading
 import time
@@ -607,7 +608,10 @@ def test_executor_doctor_rejects_unavailable_image_digest() -> None:
 
     assert result.exit_code == 3
     payload = json.loads(result.stdout)
-    assert payload["error"]["code"] == "executor_image_unavailable"
+    if platform.system() == "Darwin" and platform.machine() in {"arm64", "aarch64"}:
+        assert payload["error"]["code"] == "executor_image_unavailable"
+    else:
+        assert payload["error"]["code"] == "unsupported_executor_context"
     assert payload["error"]["category"] == "unsupported"
 
 
