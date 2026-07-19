@@ -176,6 +176,19 @@ This is a hackathon prototype, not a production traffic optimizer.
 - Generated code must be treated as untrusted. The production design requires out-of-process execution, an allowlisted environment, resource limits, artifact hash binding, and explicit acceptance.
 - Do not use the current hot-swap path on private repositories, real customer traffic, or production systems without completing the security plan.
 
+## Post-hackathon product plan
+
+The accepted Phase 0 design turns this prototype into a local-first, repository-to-evidence-to-patch product without pretending every codebase is equally supported. It separates read-only Inspect/Audit, tool-owned Draft, explicit branch-based Apply, and Integrate authority; targets a Rust control plane with Python and TypeScript adapters; and defines shared CLI, TUI, GUI, report, privacy, executor, contract, test, and open-source gates.
+
+Start with:
+
+- [product vision and scope](docs/product/vision-and-scope.md);
+- [target system design](docs/architecture/system-design.md);
+- [security threat model](docs/architecture/threat-model.md);
+- [Phase 1A implementation handoff](docs/architecture/phase-1a-handoff.md).
+
+These are target decisions, not claims about the hackathon build. Phase 1A is deliberately limited to non-mutating Python reference behavior and unverified patch artifacts.
+
 ## Repository layout
 
 ```text
