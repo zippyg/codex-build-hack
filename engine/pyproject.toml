@@ -25,6 +25,7 @@ dev = [
     "hatchling==1.31.0",
     "pytest>=8.3",
     "pytest-socket>=0.7",
+    "ruff==0.15.22",
 ]
 
 [project.scripts]
