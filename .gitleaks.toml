@@ -1,0 +1,21 @@
+title = "PROMPTECTOMY secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Natural-language token-limit test description in Phase 1A evidence"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^docs/architecture/phase-1a-evidence\.md$''']
+regexes = ['''token limits, invalid/duplicate/unknown schema cases''']
+
+[[rules.allowlists]]
+description = "Public CPython image GPG key fingerprint"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^engine/promptectomy/executor\.py$''']
+regexes = ['''GPG_KEY=[0-9A-F]{40}''']

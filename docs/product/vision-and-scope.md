@@ -128,4 +128,4 @@ Actual thresholds and test IDs are defined in [testing and benchmarks](../archit
 - Security: [threat model](../architecture/threat-model.md)
 - Contracts: [contract v2](../architecture/contracts-v2.md)
 - User surfaces: [UX contracts](../architecture/ux-contracts.md)
-- Next implementation boundary: [Phase 1A handoff](../architecture/phase-1a-handoff.md)
+- Implemented foundation: [Phase 1A evidence](../architecture/phase-1a-evidence.md) and [Phase 1B evidence](../architecture/phase-1b-evidence.md)

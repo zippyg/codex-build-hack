@@ -41,10 +41,9 @@ Tests:
 Evidence and state:
 
 - this file;
-- `.agent/state/ACTIVE_PLAN.md`;
-- `.agent/state/CURRENT_TASK.md`;
-- `.agent/state/STATUS_2026-07-19.md`;
-- `.agent/logs/2026-07-19/02-phase-1a-safe-python-reference.md`.
+- this public evidence record;
+- the accepted architecture and threat model;
+- the tagged source, lockfile, and test suite for the release candidate.
 
 The protected `engine/promptectomy/generated/route_ticket.py` was not edited, staged, restored, formatted, regenerated, or included in this phase. Its before/after SHA-256 remained:
 

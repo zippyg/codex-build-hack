@@ -17,18 +17,30 @@ secrets.json
 credentials.json
 service-account*.json
 
-# --- Agent OS state (local continuity, can be noisy) ---
-.agent/logs/
-.agent/artifacts/
-.claude/agent-logs/
-.claude/settings.local.json
+# --- Local agent and release-process state ---
+.agent/
+.claude/
+.codex/
+.agents/
+CLAUDE.md
+goal.txt
+docs/HANDOFF.md
+docs/SUBMISSION.md
+docs/submission-answers.md
+docs/source/2026-07-18-builder-guide.md
+docs/architecture/phase-1a-goal.txt
+docs/architecture/phase-1a-handoff.md
+docs/architecture/phase-0-review-resolution.md
+docs/CONTRACTS.md
+docs/specs/hackathon-constraints.md
 
 # --- PROMPTECTOMY runtime (ledger, runs, worktrees, registry) ---
 .promptectomy/
 engine/.venv/
-engine/**/generated/*.py
-!engine/**/generated/.gitkeep
+engine/promptectomy/generated/
 ui/.next/
+ui/output/
+ui/screenshots/
 ui/test-results/
 ui/playwright-report/
 

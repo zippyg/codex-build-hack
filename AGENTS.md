@@ -1,21 +1,41 @@
-# codex-build-hack - Agent Guide (portable)
+# Contributor and coding-agent guide
 
-Cross-tool guidance (Claude Code + Codex both read this).
+This file gives human contributors and repository-aware coding agents the same operating contract.
 
-## Tooling
-- Engine: Python 3.12 with `uv`; run commands from `engine/`.
-- Dashboard: Next.js 15 with `bun`; run commands from `ui/`.
-- Engine install/test: `uv sync`, then `uv run pytest -q`.
-- Dashboard install/build/test: `bun install`, `bun run build`, then `bunx playwright test`.
-- Live dashboard: https://promptectomy.vercel.app. This is a recorded replay, not a hosted engine.
+## Toolchains
 
-## Working agreement
-- Brutal honesty, evidence-backed, state confidence. No scope creep.
-- Comments explain WHY not WHAT. Secrets via env only. No destructive commands.
-- Match the planning tier to the change (tiny → just do it; feature → plan first).
+- Engine: Python 3.12, `uv`, Pydantic, Typer, and pytest.
+- Dashboard: Next.js, TypeScript, `bun`, and Playwright.
+- Local isolation: an accepted OCI-compatible runtime. OrbStack is the primary macOS backend.
 
-## Memory & logs
-- Curated memory: .agent/memory/  · raw logs: .agent/logs/YYYY-MM-DD/
-- Active work: .agent/state/ACTIVE_PLAN.md, CURRENT_TASK.md
-- Current takeover truth: .agent/state/STATUS_2026-07-19.md
-- Hackathon source of truth: docs/source/2026-07-18-builder-guide.md.
+Use the repository lockfiles. Do not mix Python or JavaScript package managers.
+
+## Verified commands
+
+```bash
+cd engine
+uv sync --frozen
+uv run pytest -q
+
+cd ../ui
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
+bunx playwright test
+```
+
+## Safety invariants
+
+- Inspect, Audit, and Draft must not mutate or execute target repositories.
+- Repository, generated, candidate, dependency, and test code must not run in the trusted core or clients.
+- Draft output belongs in private tool-owned storage, never inside the target repository.
+- Do not add a weaker fallback when isolation, policy, evidence, or freshness checks fail.
+- Never expose credentials, protected content, raw exceptions, or host paths in events and reports.
+- Apply must remain explicit, stale-checked, recoverable, and unable to target a default branch.
+- Do not track generated replacements, local agent state, runtime data, screenshots, secrets, or submission artifacts.
+
+## Change discipline
+
+Read a file fully before editing it. Prefer the smallest change that closes a tested behavior. Add targeted tests for non-trivial logic. Security-sensitive changes require an explicit threat-boundary review. Public claims must map to current tests or evidence under `docs/architecture/`.
+
+The accepted product boundaries are in [docs/product/vision-and-scope.md](docs/product/vision-and-scope.md). Architecture decisions live in [docs/adr/](docs/adr/).
