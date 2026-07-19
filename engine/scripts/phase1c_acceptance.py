@@ -29,6 +29,7 @@ REQUIRED_WHEEL_FILES = {
     "promptectomy/schema_assets/draft-candidate-v1.json",
     "promptectomy/schema_assets/synthesis-result-v1.json",
     "promptectomy/schema_assets/verdict-v1.json",
+    "promptectomy/schema_v2/contract.schema.json",
 }
 OWNER_LABEL = "dev.promptectomy.owner=phase1b"
 FORBIDDEN_WHEEL_MODULES = {
@@ -94,6 +95,7 @@ def copy_candidate(destination: Path) -> None:
         ignore=shutil.ignore_patterns("generated", "__pycache__", "*.pyc"),
         symlinks=True,
     )
+    shutil.copytree(ENGINE_ROOT / "schemas", destination / "schemas")
     for path in (destination / "promptectomy").rglob("*"):
         if path.is_symlink():
             raise RuntimeError(
@@ -338,6 +340,10 @@ def main() -> int:
         shutil.copy2(
             ENGINE_ROOT / "acceptance" / "installed_boundary.py",
             tests / "test_installed_boundary.py",
+        )
+        shutil.copy2(
+            ENGINE_ROOT / "acceptance" / "installed_v2.py",
+            tests / "test_installed_v2.py",
         )
 
         online_venv = root / "venv-online"

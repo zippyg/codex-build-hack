@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Local-first analysis, unverified patch drafts, and bounded offline OCI execution for supported LLM callsites."
 requires-python = ">=3.12"
 dependencies = [
+    "apsw==3.53.3.1",
     "openai==2.46.0",
     "httpx>=0.28,<1",
     "pydantic>=2.9",
@@ -11,6 +12,8 @@ dependencies = [
     "deepdiff>=8.0",
     "fastapi>=0.115",
     "uvicorn>=0.32",
+    "jsonschema==4.26.0",
+    "rfc8785==0.1.4",
 ]
 
 [dependency-groups]
@@ -50,3 +53,6 @@ exclude = [
     "/promptectomy/verify.py",
     "/promptectomy/worktrees.py",
 ]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas/v2" = "promptectomy/schema_v2"

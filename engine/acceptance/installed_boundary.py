@@ -9,6 +9,7 @@ import promptectomy
 from typer.testing import CliRunner
 
 from promptectomy.cli import app
+from promptectomy.contracts_v2 import validate_schema_document
 
 
 LEGACY_MODULES = (
@@ -56,6 +57,7 @@ def test_distribution_contains_only_declared_runtime_assets() -> None:
         )
     assert executor.joinpath("Dockerfile").is_file()
     assert executor.joinpath("runner.py").is_file()
+    validate_schema_document()
 
 
 def test_default_capabilities_are_local_and_fail_closed(

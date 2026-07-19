@@ -1,0 +1,46 @@
+{
+  "accepted_at": "2026-07-19T09:57:53.248420+00:00",
+  "bindings": {
+    "generated/contracts_v2/python/promptectomy_contracts_v2.py": "b0d1a5a591ad82cefa190b0cf3320c871480365827a17ac8263ee17b9dcba99f",
+    "generated/contracts_v2/rust/src/lib.rs": "7f7590e6b141a0f33fe788eed731aad0eb2c96221637d849117a59aba90b5cec",
+    "generated/contracts_v2/typescript/contracts-v2.ts": "f8906cfab6a7c56a0b5f7a3871109cb1487e7571e3700eb556ed93aa5eabc675"
+  },
+  "boundaries": {
+    "api_capability_required": true,
+    "api_host_origin_bounded": true,
+    "artifact_rehash_on_read": true,
+    "artifact_write_before_reference": true,
+    "atomic_event_projection": true,
+    "owner_only_local_state": true,
+    "phase1_import_preserves_target": true,
+    "protected_artifact_api_denied": true,
+    "protected_source_digest_unchanged": true,
+    "reports_frozen_from_safe_snapshot": true,
+    "source_status_unchanged": true
+  },
+  "contract": {
+    "canonicalization": "rfc8785",
+    "digest_algorithm": "sha256_domain_separated",
+    "draft": "2020-12",
+    "entity_count": 15,
+    "schema_version": "2.0.0",
+    "sha256": "d3ff401e7d27ba7e19eeca6c7afdc2a430515e6a7541d5ccd290d866f096284c"
+  },
+  "executor_image": "sha256:23b8908a955aa2b7eb602845e08b50e1821d072ed67e510580d2392fbffec4f0",
+  "known_non_product_warning": "Starlette TestClient deprecation in current pinned dependency set",
+  "schema_version": "phase2-1",
+  "state": {
+    "apsw": "3.53.3.1",
+    "journal_mode": "WAL",
+    "minimum_sqlite": "3.51.3",
+    "schema_version": 1,
+    "sqlite": "3.53.3"
+  },
+  "tests": {
+    "full_with_accepted_oci": "146 passed, 1 warning in 20.16s",
+    "full_without_oci": "132 passed, 14 skipped, 1 warning in 1.83s",
+    "rust": "cargo check passed",
+    "typescript": "strict noEmit passed",
+    "v2": "30 passed, 1 warning in 0.42s"
+  }
+}

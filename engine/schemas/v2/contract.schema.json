@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptectomy.invalid/schemas/v2/contract.schema.json",
+  "title": "PROMPTECTOMY Contract v2",
+  "oneOf": [
+    {"$ref": "#/$defs/Repository"},
+    {"$ref": "#/$defs/Snapshot"},
+    {"$ref": "#/$defs/Authority"},
+    {"$ref": "#/$defs/Run"},
+    {"$ref": "#/$defs/Stage"},
+    {"$ref": "#/$defs/Event"},
+    {"$ref": "#/$defs/Callsite"},
+    {"$ref": "#/$defs/Observation"},
+    {"$ref": "#/$defs/Finding"},
+    {"$ref": "#/$defs/Candidate"},
+    {"$ref": "#/$defs/Evaluation"},
+    {"$ref": "#/$defs/Patch"},
+    {"$ref": "#/$defs/Artifact"},
+    {"$ref": "#/$defs/Receipt"},
+    {"$ref": "#/$defs/Error"}
+  ],
+  "$defs": {
+    "SchemaVersion": {"const": "2.0.0"},
+    "Timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+    },
+    "TypedId": {
+      "type": "string",
+      "pattern": "^(repo|auth|run|stage|evt|finding|candidate|eval|patch|err)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "RepositoryId": {"type": "string", "pattern": "^repo_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "RunId": {"type": "string", "pattern": "^run_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "SnapshotId": {"type": "string", "pattern": "^snap_sha256_[0-9a-f]{64}$"},
+    "CallsiteId": {"type": "string", "pattern": "^cs_sha256_[0-9a-f]{64}$"},
+    "ObservationId": {"type": "string", "pattern": "^(obs_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[a-z][a-z0-9_.-]{0,31}:[A-Za-z0-9_.:/-]{1,256})$"},
+    "ArtifactId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "ReceiptId": {"type": "string", "pattern": "^receipt_sha256_[0-9a-f]{64}$"},
+    "Sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "RelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\u0000-\\u001f\\u007f]).+$"
+    },
+    "SafeText": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "ArtifactRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ArtifactId"}
+    },
+    "StringMap": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+      "additionalProperties": {"type": "string", "maxLength": 4000}
+    },
+    "SafeValue": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "boolean"},
+        {"type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991},
+        {"type": "string", "maxLength": 4000},
+        {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/SafeScalar"}},
+        {"type": "object", "maxProperties": 128, "additionalProperties": {"$ref": "#/$defs/SafeScalar"}}
+      ]
+    },
+    "SafeScalar": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "boolean"},
+        {"type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991},
+        {"type": "string", "maxLength": 4000}
+      ]
+    },
+    "Repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "repository_id", "source_kind", "display_name", "redacted_locator", "created_at"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/repository.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "repository_id": {"$ref": "#/$defs/RepositoryId"},
+        "source_kind": {"enum": ["local", "https_git", "ssh_git", "archive", "bundle"]},
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "redacted_locator": {"type": "string", "minLength": 1, "maxLength": 2048},
+        "canonical_origin_digest": {"$ref": "#/$defs/Sha256"},
+        "created_at": {"$ref": "#/$defs/Timestamp"}
+      }
+    },
+    "Snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "snapshot_id", "repository_id", "revision", "tree_digest", "selected_roots", "exclusions", "policy_digest", "inventory", "quota_outcome", "created_at"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/snapshot.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "snapshot_id": {"$ref": "#/$defs/SnapshotId"},
+        "repository_id": {"$ref": "#/$defs/RepositoryId"},
+        "revision": {"type": "string", "pattern": "^(commit:[0-9a-f]{40,64}|archive:sha256:[0-9a-f]{64})$"},
+        "dirty_diff_digest": {"$ref": "#/$defs/Sha256"},
+        "tree_digest": {"$ref": "#/$defs/Sha256"},
+        "selected_roots": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"$ref": "#/$defs/RelativePath"}},
+        "exclusions": {"type": "array", "maxItems": 1024, "items": {"type": "string", "maxLength": 512}},
+        "policy_digest": {"$ref": "#/$defs/Sha256"},
+        "inventory": {
+          "type": "object", "additionalProperties": false,
+          "required": ["files", "objects", "bytes"],
+          "properties": {
+            "files": {"type": "integer", "minimum": 0},
+            "objects": {"type": "integer", "minimum": 0},
+            "bytes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "quota_outcome": {"enum": ["within_limit", "truncated", "rejected"]},
+        "created_at": {"$ref": "#/$defs/Timestamp"}
+      }
+    },
+    "Authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "authority_id", "subject_id", "mode", "manifest", "manifest_digest", "approved_at", "approval_origin", "revoked"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/authority.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "authority_id": {"type": "string", "pattern": "^auth_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+        "subject_id": {"type": "string", "pattern": "^(run|action)_[A-Za-z0-9_.:-]{1,256}$"},
+        "mode": {"enum": ["inspect", "audit", "draft", "apply", "integrate"]},
+        "manifest": {
+          "type": "object", "additionalProperties": false,
+          "required": ["reads", "writes", "commands", "executor", "network_destinations", "environment_names", "model", "budget", "egress_classes", "retention", "cancellation", "cleanup"],
+          "properties": {
+            "reads": {"type": "array", "maxItems": 256, "items": {"type": "string", "maxLength": 4096}},
+            "writes": {"type": "array", "maxItems": 256, "items": {"type": "string", "maxLength": 4096}},
+            "commands": {"type": "array", "maxItems": 256, "items": {"type": "string", "maxLength": 4096}},
+            "executor": {"type": ["string", "null"], "maxLength": 256},
+            "network_destinations": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 2048}},
+            "environment_names": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]{0,127}$"}},
+            "model": {"type": ["string", "null"], "maxLength": 256},
+            "budget": {"type": "object", "maxProperties": 32, "additionalProperties": {"type": "integer", "minimum": 0}},
+            "egress_classes": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"enum": ["D0", "D1", "D2", "D3"]}},
+            "retention": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": "integer", "minimum": 0}},
+            "cancellation": {"type": "string", "minLength": 1, "maxLength": 256},
+            "cleanup": {"type": "string", "minLength": 1, "maxLength": 256}
+          }
+        },
+        "manifest_digest": {"$ref": "#/$defs/Sha256"},
+        "approved_at": {"$ref": "#/$defs/Timestamp"},
+        "expires_at": {"$ref": "#/$defs/Timestamp"},
+        "approval_origin": {"type": "string", "pattern": "^(interactive_local|policy:sha256:[0-9a-f]{64})$"},
+        "revoked": {"type": "boolean"}
+      }
+    },
+    "Run": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "run_id", "snapshot_id", "authority_ids", "mode", "status", "highest_support_level", "digests", "counters", "budgets", "cleanup_state", "created_at", "last_sequence"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/run.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "run_id": {"$ref": "#/$defs/RunId"},
+        "snapshot_id": {"$ref": "#/$defs/SnapshotId"},
+        "authority_ids": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "pattern": "^auth_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}},
+        "mode": {"enum": ["inspect", "audit", "draft", "apply", "integrate"]},
+        "status": {"enum": ["created", "preflight", "awaiting_authority", "queued", "running", "pausing", "paused", "cancelling", "completed", "completed_no_findings", "completed_with_unsupported", "failed", "cancelled", "interrupted"]},
+        "highest_support_level": {"enum": ["L0", "L1", "L2", "L3", "L4", "L5"]},
+        "digests": {"$ref": "#/$defs/StringMap"},
+        "counters": {"type": "object", "maxProperties": 128, "additionalProperties": {"type": "integer", "minimum": 0}},
+        "budgets": {"type": "object", "maxProperties": 64, "additionalProperties": {"type": "integer", "minimum": 0}},
+        "cleanup_state": {"enum": ["not_required", "pending", "running", "completed", "failed"]},
+        "created_at": {"$ref": "#/$defs/Timestamp"},
+        "started_at": {"$ref": "#/$defs/Timestamp"},
+        "terminal_at": {"$ref": "#/$defs/Timestamp"},
+        "last_sequence": {"type": "integer", "minimum": 0}
+      }
+    },
+    "Stage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "stage_id", "run_id", "kind", "state", "attempt", "max_attempts", "retryable", "input_artifact_refs", "output_artifact_refs", "timing", "resources"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/stage.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "stage_id": {"type": "string", "pattern": "^stage_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+        "run_id": {"$ref": "#/$defs/RunId"},
+        "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+        "state": {"enum": ["created", "awaiting_authority", "queued", "running", "pausing", "paused", "cancelling", "cancelled", "completed", "failed", "interrupted"]},
+        "attempt": {"type": "integer", "minimum": 0},
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "retryable": {"type": "boolean"},
+        "lease": {"type": ["object", "null"], "maxProperties": 4, "additionalProperties": {"type": "string", "maxLength": 256}},
+        "input_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"},
+        "output_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"},
+        "error_id": {"type": ["string", "null"], "pattern": "^err_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+        "timing": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": "integer", "minimum": 0}},
+        "resources": {"type": "object", "maxProperties": 32, "additionalProperties": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "Event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "event_id", "run_id", "sequence", "occurred_at", "type", "payload_schema", "payload_version", "payload", "artifact_refs"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/event.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "event_id": {"type": "string", "pattern": "^evt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+        "run_id": {"$ref": "#/$defs/RunId"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "occurred_at": {"$ref": "#/$defs/Timestamp"},
+        "type": {"type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"},
+        "payload_schema": {"type": "string", "pattern": "^https://promptectomy\\.invalid/schemas/v2/events/[a-z0-9-]+\\.schema\\.json$"},
+        "payload_version": {"$ref": "#/$defs/SchemaVersion"},
+        "payload": {"type": "object", "maxProperties": 128, "additionalProperties": {"$ref": "#/$defs/SafeValue"}},
+        "artifact_refs": {"$ref": "#/$defs/ArtifactRefs"}
+      }
+    },
+    "Callsite": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "callsite_id", "snapshot_id", "language", "provider", "operation", "sdk_surface", "adapter_version", "relative_path", "symbol", "ast_digest", "source_range", "support_level", "support_state", "evidence", "confidence", "coverage"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/callsite.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "callsite_id": {"$ref": "#/$defs/CallsiteId"},
+        "snapshot_id": {"$ref": "#/$defs/SnapshotId"},
+        "language": {"type": "string", "pattern": "^[a-z][a-z0-9_+-]{0,31}$"},
+        "provider": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+        "operation": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sdk_surface": {"type": "string", "minLength": 1, "maxLength": 256},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "relative_path": {"$ref": "#/$defs/RelativePath"},
+        "symbol": {"type": "string", "minLength": 1, "maxLength": 512},
+        "ast_digest": {"$ref": "#/$defs/Sha256"},
+        "source_range": {"type": "object", "additionalProperties": false, "required": ["start_line", "start_column", "end_line", "end_column"], "properties": {"start_line": {"type": "integer", "minimum": 1}, "start_column": {"type": "integer", "minimum": 0}, "end_line": {"type": "integer", "minimum": 1}, "end_column": {"type": "integer", "minimum": 0}}},
+        "support_level": {"enum": ["L0", "L1", "L2", "L3", "L4", "L5"]},
+        "support_state": {"enum": ["stable", "experimental", "unsupported"]},
+        "evidence": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/SafeText"}},
+        "confidence": {"type": "string", "pattern": "^(0|1|0\\.[0-9]{1,6})$"},
+        "coverage": {"$ref": "#/$defs/StringMap"}
+      }
+    },
+    "Observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "observation_id", "callsite_id", "adapter", "adapter_version", "provider", "model", "operation", "observed_at", "request_shape_digest", "response_shape_digest", "status", "flags", "duration_microseconds", "usage", "cost", "correlation", "policy_digests"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/observation.schema.json"},
+        "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "observation_id": {"$ref": "#/$defs/ObservationId"},
+        "callsite_id": {"$ref": "#/$defs/CallsiteId"},
+        "adapter": {"type": "string", "minLength": 1, "maxLength": 128},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "provider": {"type": "string", "minLength": 1, "maxLength": 128},
+        "model": {"type": "string", "minLength": 1, "maxLength": 256},
+        "operation": {"type": "string", "minLength": 1, "maxLength": 256},
+        "observed_at": {"$ref": "#/$defs/Timestamp"},
+        "request_shape_digest": {"$ref": "#/$defs/Sha256"},
+        "response_shape_digest": {"$ref": "#/$defs/Sha256"},
+        "protected_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"},
+        "status": {"enum": ["completed", "failed", "cancelled", "unknown"]},
+        "flags": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"enum": ["streaming", "tools", "structured", "retry", "error", "cancelled"]}},
+        "duration_microseconds": {"type": "integer", "minimum": 0},
+        "usage": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": "integer", "minimum": 0}},
+        "cost": {"type": "object", "additionalProperties": false, "required": ["amount", "currency", "price_table_version", "kind"], "properties": {"amount": {"type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)?$"}, "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "price_table_version": {"type": "string", "minLength": 1, "maxLength": 128}, "kind": {"enum": ["observed", "estimated"]}}},
+        "correlation": {"type": "object", "additionalProperties": false, "required": ["confidence", "reason"], "properties": {"confidence": {"type": "string", "pattern": "^(0|1|0\\.[0-9]{1,6})$"}, "reason": {"$ref": "#/$defs/SafeText"}}},
+        "policy_digests": {"$ref": "#/$defs/StringMap"}
+      }
+    },
+    "Finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "finding_id", "run_id", "callsite_id", "category", "severity", "opportunity_type", "support_level", "evidence_grade", "rationale", "uncertainty", "required_evidence", "limitations", "input_artifact_refs", "producer_digests"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/finding.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "finding_id": {"type": "string", "pattern": "^finding_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "run_id": {"$ref": "#/$defs/RunId"}, "callsite_id": {"$ref": "#/$defs/CallsiteId"},
+        "category": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"}, "severity": {"enum": ["info", "low", "medium", "high", "critical"]}, "opportunity_type": {"type": "string", "minLength": 1, "maxLength": 128}, "support_level": {"enum": ["L0", "L1", "L2", "L3", "L4", "L5"]}, "evidence_grade": {"enum": ["insufficient", "static", "observed", "evaluated", "verified"]},
+        "rationale": {"type": "object", "maxProperties": 128, "additionalProperties": {"$ref": "#/$defs/SafeValue"}}, "uncertainty": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/SafeText"}}, "required_evidence": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/SafeText"}}, "limitations": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/SafeText"}}, "input_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"}, "producer_digests": {"$ref": "#/$defs/StringMap"}
+      }
+    },
+    "Candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "candidate_id", "finding_id", "snapshot_id", "candidate_class", "target_interface", "producer_digests", "patch_artifact_ref", "test_artifact_refs", "dependency_artifact_refs", "state", "attempt", "budgets", "nondeterminism"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/candidate.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "candidate_id": {"type": "string", "pattern": "^candidate_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "finding_id": {"type": "string", "pattern": "^finding_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "snapshot_id": {"$ref": "#/$defs/SnapshotId"},
+        "candidate_class": {"type": "string", "minLength": 1, "maxLength": 128}, "target_interface": {"type": "string", "minLength": 1, "maxLength": 256}, "producer_digests": {"$ref": "#/$defs/StringMap"}, "patch_artifact_ref": {"$ref": "#/$defs/ArtifactId"}, "test_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"}, "dependency_artifact_refs": {"$ref": "#/$defs/ArtifactRefs"},
+        "state": {"enum": ["proposed", "unverified", "evaluating", "eligible", "ineligible", "failed", "superseded"]}, "attempt": {"type": "integer", "minimum": 1}, "budgets": {"type": "object", "maxProperties": 32, "additionalProperties": {"type": "integer", "minimum": 0}}, "nondeterminism": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/SafeText"}}
+      }
+    },
+    "Evaluation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "evaluation_id", "candidate_id", "evaluator_digests", "evidence", "runtime_digests", "results", "termination", "resources", "timing", "eligible", "policy_digest", "limitations", "artifact_refs"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/evaluation.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "evaluation_id": {"type": "string", "pattern": "^eval_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "candidate_id": {"type": "string", "pattern": "^candidate_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "evaluator_digests": {"$ref": "#/$defs/StringMap"}, "evidence": {"$ref": "#/$defs/StringMap"}, "runtime_digests": {"$ref": "#/$defs/StringMap"},
+        "results": {"type": "object", "maxProperties": 32, "additionalProperties": {"$ref": "#/$defs/SafeValue"}}, "termination": {"type": "object", "maxProperties": 32, "additionalProperties": {"$ref": "#/$defs/SafeValue"}}, "resources": {"type": "object", "maxProperties": 32, "additionalProperties": {"type": "integer", "minimum": 0}}, "timing": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": "integer", "minimum": 0}},
+        "eligible": {"type": "boolean"}, "policy_digest": {"$ref": "#/$defs/Sha256"}, "limitations": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/SafeText"}}, "artifact_refs": {"$ref": "#/$defs/ArtifactRefs"}, "error_id": {"type": ["string", "null"], "pattern": "^err_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
+      }
+    },
+    "Patch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "patch_id", "candidate_id", "base_snapshot_id", "base_revision", "media_type", "artifact_ref", "affected_paths", "change_summary", "preconditions", "approved_checks", "destination_branch_policy"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/patch.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "patch_id": {"type": "string", "pattern": "^patch_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "candidate_id": {"type": "string", "pattern": "^candidate_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "base_snapshot_id": {"$ref": "#/$defs/SnapshotId"}, "base_revision": {"type": "string", "minLength": 1, "maxLength": 256}, "media_type": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"}, "artifact_ref": {"$ref": "#/$defs/ArtifactId"},
+        "affected_paths": {"type": "array", "minItems": 1, "maxItems": 1024, "uniqueItems": true, "items": {"$ref": "#/$defs/RelativePath"}}, "change_summary": {"$ref": "#/$defs/StringMap"}, "preconditions": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"$ref": "#/$defs/SafeText"}}, "approved_checks": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/SafeText"}}, "destination_branch_policy": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "Artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "artifact_id", "byte_count", "media_type", "class", "created_by", "policy_digest", "retention", "complete", "quarantined", "pinned", "references"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/artifact.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "artifact_id": {"$ref": "#/$defs/ArtifactId"}, "byte_count": {"type": "integer", "minimum": 0}, "media_type": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"}, "class": {"enum": ["safe", "source", "protected", "diagnostic", "executable"]}, "created_by": {"type": "string", "minLength": 1, "maxLength": 256}, "policy_digest": {"$ref": "#/$defs/Sha256"}, "retention": {"type": "object", "maxProperties": 16, "additionalProperties": {"$ref": "#/$defs/SafeValue"}}, "encryption": {"type": ["object", "null"], "maxProperties": 16, "additionalProperties": {"type": "string", "maxLength": 512}}, "complete": {"const": true}, "quarantined": {"const": false}, "pinned": {"type": "boolean"}, "references": {"type": "array", "maxItems": 1024, "uniqueItems": true, "items": {"type": "string", "maxLength": 256}}
+      }
+    },
+    "Receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "receipt_id", "receipt_kind", "policy_version", "bindings", "evidence_grade", "support_level", "limitations", "resources", "timestamps", "canonicalization", "digest_algorithm", "trusted_core_version", "nondeterministic_fields"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/receipt.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "receipt_id": {"$ref": "#/$defs/ReceiptId"}, "receipt_kind": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"}, "policy_version": {"type": "string", "minLength": 1, "maxLength": 64}, "bindings": {"$ref": "#/$defs/StringMap"}, "evidence_grade": {"enum": ["insufficient", "static", "observed", "evaluated", "verified"]}, "support_level": {"enum": ["L0", "L1", "L2", "L3", "L4", "L5"]}, "limitations": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/SafeText"}}, "resources": {"type": "object", "maxProperties": 32, "additionalProperties": {"type": "integer", "minimum": 0}}, "timestamps": {"type": "object", "maxProperties": 16, "additionalProperties": {"$ref": "#/$defs/Timestamp"}}, "canonicalization": {"const": "rfc8785"}, "digest_algorithm": {"const": "sha256"}, "trusted_core_version": {"type": "string", "minLength": 1, "maxLength": 128}, "nondeterministic_fields": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 256}}
+      }
+    },
+    "Error": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_uri", "schema_version", "error_id", "code", "category", "retryable", "safe_message", "next_action", "stage_id", "entity_refs", "diagnostic_artifact_ref"],
+      "properties": {
+        "schema_uri": {"const": "https://promptectomy.invalid/schemas/v2/error.schema.json"}, "schema_version": {"$ref": "#/$defs/SchemaVersion"},
+        "error_id": {"type": "string", "pattern": "^err_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "code": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}, "category": {"enum": ["input", "unsupported", "policy", "acquisition", "adapter", "agent", "executor", "candidate", "evaluator", "state", "storage", "apply", "cancel", "internal"]}, "retryable": {"type": "boolean"}, "safe_message": {"$ref": "#/$defs/SafeText"}, "next_action": {"$ref": "#/$defs/SafeText"}, "stage_id": {"type": ["string", "null"], "pattern": "^stage_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "entity_refs": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "maxLength": 256}}, "diagnostic_artifact_ref": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

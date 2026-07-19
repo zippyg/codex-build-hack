@@ -1,15 +1,21 @@
 {
-  "accepted_at": "2026-07-19T09:02:14.546662+00:00",
+  "accepted_at": "2026-07-19T09:59:01.661463+00:00",
   "artifact": {
     "filename": "promptectomy-0.1.0-py3-none-any.whl",
     "files": [
       "promptectomy/__init__.py",
+      "promptectomy/api_v2.py",
+      "promptectomy/artifacts_v2.py",
       "promptectomy/cli.py",
       "promptectomy/connector.py",
+      "promptectomy/contracts_v2.py",
       "promptectomy/executor.py",
       "promptectomy/executor_contracts.py",
+      "promptectomy/migration_v2.py",
       "promptectomy/reference.py",
       "promptectomy/reference_contracts.py",
+      "promptectomy/reports_v2.py",
+      "promptectomy/state_v2.py",
       "promptectomy/executor_image/Dockerfile",
       "promptectomy/executor_image/__init__.py",
       "promptectomy/executor_image/runner.py",
@@ -18,14 +24,20 @@
       "promptectomy/schema_assets/draft-candidate-v1.json",
       "promptectomy/schema_assets/synthesis-result-v1.json",
       "promptectomy/schema_assets/verdict-v1.json",
+      "promptectomy/schema_v2/__init__.py",
+      "promptectomy/schema_v2/contract.schema.json",
+      "promptectomy/schema_v2/examples/event.valid.json",
+      "promptectomy/schema_v2/examples/run-extra-field.invalid.json",
+      "promptectomy/schema_v2/examples/run-future-version.invalid.json",
+      "promptectomy/schema_v2/examples/run.valid.json",
       "promptectomy-0.1.0.dist-info/METADATA",
       "promptectomy-0.1.0.dist-info/WHEEL",
       "promptectomy-0.1.0.dist-info/entry_points.txt",
       "promptectomy-0.1.0.dist-info/RECORD"
     ],
     "reproducible_builds": 2,
-    "sha256": "5465a0b24472ba3a9ea890a92277457fa58b2744255974eb125bb8a78473236c",
-    "size_bytes": 46702
+    "sha256": "acd99f8594bdfd37c22b95fe1e16cbd864ed1eaab7b343066a1839d7df2e72e5",
+    "size_bytes": 72096
   },
   "boundaries": {
     "child_processes_after_tests": 0,
@@ -64,6 +76,22 @@
       "license_expression": "MIT",
       "name": "anyio",
       "version": "4.14.2"
+    },
+    {
+      "homepage": "https://github.com/rogerbinns/apsw",
+      "license": "any-OSI",
+      "license_classifiers": [],
+      "license_expression": null,
+      "name": "apsw",
+      "version": "3.53.3.1"
+    },
+    {
+      "homepage": "Documentation, https://www.attrs.org/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "attrs",
+      "version": "26.1.0"
     },
     {
       "homepage": "https://github.com/awolverp/cachebox",
@@ -184,6 +212,22 @@
       "version": "0.16.0"
     },
     {
+      "homepage": "Homepage, https://github.com/python-jsonschema/jsonschema",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "homepage": "Documentation, https://jsonschema-specifications.readthedocs.io/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
       "homepage": "Documentation, https://markdown-it-py.readthedocs.io",
       "license": null,
       "license_classifiers": [
@@ -302,6 +346,24 @@
       "version": "0.8.0"
     },
     {
+      "homepage": "Documentation, https://referencing.readthedocs.io/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "homepage": "Documentation, https://trailofbits.github.io/rfc8785.py/",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: Apache Software License"
+      ],
+      "license_expression": null,
+      "name": "rfc8785",
+      "version": "0.1.4"
+    },
+    {
       "homepage": "Documentation, https://rich.readthedocs.io/en/latest/",
       "license": "MIT",
       "license_classifiers": [
@@ -310,6 +372,14 @@
       "license_expression": null,
       "name": "rich",
       "version": "15.0.0"
+    },
+    {
+      "homepage": "Documentation, https://rpds.readthedocs.io/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "rpds-py",
+      "version": "2026.6.3"
     },
     {
       "homepage": "https://github.com/sarugaku/shellingham",
@@ -396,9 +466,9 @@
     "dependency_metadata_complete": true,
     "project_license": "unapproved"
   },
-  "requirements_sha256": "ec3677b84b14f26d90d70b4a64b0691272ea485892e6ca7983e6cd9afbdfd685",
+  "requirements_sha256": "64c7b1fae13dc451d4adf32418e276b9495f07df7f9e608ce66f5b1fffaf85d6",
   "schema_version": "phase1c-1",
-  "test_result": "83 passed in 18.97s",
+  "test_result": "84 passed in 19.45s",
   "toolchain": {
     "python": "Python 3.12.8",
     "uv": "uv 0.11.26 (Homebrew 2026-06-30 aarch64-apple-darwin)"

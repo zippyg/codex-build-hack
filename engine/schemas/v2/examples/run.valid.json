@@ -1,0 +1,16 @@
+{
+  "schema_uri": "https://promptectomy.invalid/schemas/v2/run.schema.json",
+  "schema_version": "2.0.0",
+  "run_id": "run_019f0000-0000-7000-8000-000000000001",
+  "snapshot_id": "snap_sha256_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "authority_ids": ["auth_019f0000-0000-7000-8000-000000000001"],
+  "mode": "audit",
+  "status": "created",
+  "highest_support_level": "L0",
+  "digests": {},
+  "counters": {},
+  "budgets": {},
+  "cleanup_state": "not_required",
+  "created_at": "2026-07-18T18:30:00.000000Z",
+  "last_sequence": 0
+}

@@ -1,8 +1,8 @@
 # PROMPTECTOMY system design
 
-Status: accepted Phase 0 target architecture
-Date: 18 July 2026
-Current implementation remains the hackathon prototype at `8bab7bb`
+Status: accepted target architecture with Phase 2 foundation implemented
+Date: 19 July 2026
+Current implementation: safe Python oracle, accepted OCI executor, Contract v2, SQLite/CAS state, local API contract, and deterministic reports
 
 ## Recommendation
 
@@ -17,10 +17,10 @@ The Python prototype is evidence for domain behavior, not the target authority:
 | Prototype behavior | Target replacement | Migration rule |
 |---|---|---|
 | Typer command owns orchestration | Rust orchestration/policy core | Safe Python reference path first, then wrap through versioned adapter |
-| Mutable JSONL/registry state | SQLite events/projections plus content-addressed artifacts | Import originals without rewriting; mark missing provenance |
+| Mutable JSONL/registry state | SQLite events/projections plus content-addressed artifacts | Phase 2 implementation imports originals without rewriting and marks provenance |
 | Worktree/branches inside target | Immutable snapshot and scratch in tool-owned storage | Source digest must remain unchanged |
 | Generated Python imported in parent | Executor interface with offline isolated worker | No compatibility fallback to parent import |
-| Pydantic/Zod manual mirror | Canonical contract v2 with generated validators/bindings | Conformance fixtures before retiring v1 readers |
+| Pydantic/Zod manual mirror | Canonical contract v2 with generated Python, TypeScript, and Rust bindings | Phase 2 fixtures and digest checks pass; retire v1 readers only after client parity |
 | Sync OpenAI shim | Python/Node provider capture adapters | Stable matrix requires sync/async/stream/tools/errors/retries |
 | Recorded replay stage UI | Run-first TUI/GUI/report clients | Historical fixture remains clearly labelled demo mode |
 | Codex CLI called directly | Provider-neutral `AgentRuntime` | Record prompt/runtime/model/budget and separate connector credentials from tools |
@@ -180,25 +180,27 @@ SQLite WAL is local-host only and the embedded version must contain the upstream
 Representative v1 surface:
 
 ```text
-POST   /v1/repositories/inspect
-POST   /v1/runs
-GET    /v1/runs/{run_id}
-POST   /v1/runs/{run_id}/authority
-POST   /v1/runs/{run_id}/cancel
-POST   /v1/runs/{run_id}/resume
-GET    /v1/runs/{run_id}/events?after={sequence}
-GET    /v1/runs/{run_id}/callsites
-GET    /v1/findings/{finding_id}
-GET    /v1/candidates/{candidate_id}
-POST   /v1/candidates/{candidate_id}/evaluate
-POST   /v1/candidates/{candidate_id}/apply
-POST   /v1/runs/{run_id}/exports
-GET    /v1/artifacts/{algorithm}/{digest}
+POST   /v2/repositories/inspect
+POST   /v2/runs
+GET    /v2/runs/{run_id}
+POST   /v2/runs/{run_id}/authority
+POST   /v2/runs/{run_id}/cancel
+POST   /v2/runs/{run_id}/resume
+GET    /v2/runs/{run_id}/events?after={sequence}
+GET    /v2/runs/{run_id}/callsites
+GET    /v2/findings/{finding_id}
+GET    /v2/candidates/{candidate_id}
+POST   /v2/candidates/{candidate_id}/evaluate
+POST   /v2/candidates/{candidate_id}/apply
+POST   /v2/runs/{run_id}/exports
+GET    /v2/artifacts/{algorithm}/{digest}
 ```
 
 Mutations require idempotency keys. Long work returns a run/job identity. Event cursors detect gaps. Artifact reads enforce class/authority and never accept filesystem paths. Errors use the taxonomy in [contract v2](contracts-v2.md).
 
 Transport preference is Unix domain socket or Windows named pipe protected by OS permissions. Loopback HTTP is a fallback with a short-lived capability token, loopback-only bind, strict Origin/Host checks, no wildcard CORS, bounded request bodies, and lifecycle tied to the core. Tauri invokes narrow commands through explicit capabilities; it receives no arbitrary shell or filesystem bridge.
+
+Phase 2 implements and tests the canonical `/v2` run, event, safe-artifact, health, and frozen-report handlers as an in-process ASGI application. Phase 3 owns the Rust daemon, operating-system transport, lifecycle, and remaining target endpoints. The Python application is not presented as a separately hosted service.
 
 ## Repository, evidence, and identity
 
