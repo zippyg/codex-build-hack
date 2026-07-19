@@ -30,7 +30,9 @@ from promptectomy.contracts_v2 import ContractError, parse_json_strict  # noqa: 
 
 
 PROTECTED_DIGEST = "a4fcdab0f1baef70072620e1409d68e732c5a4549d3f36388a7213237dab961c"
-PROTECTED_TRACKED_DIGEST = "75944ba99d386798002496ae0ef39bf8d0159f4bb2d2daea57b65009e00a9d8c"
+PROTECTED_TRACKED_DIGEST = (
+    "75944ba99d386798002496ae0ef39bf8d0159f4bb2d2daea57b65009e00a9d8c"
+)
 RECEIPT_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "phase-4-receipt.json"
 MATRIX_PATH = REPOSITORY_ROOT / "docs" / "architecture" / "support-matrix-v1.json"
 BOUND_PATHS = (
@@ -93,10 +95,12 @@ class SuitePlan:
 
 SUITE_PLAN = {
     "ARCH": SuitePlan("passed", ("acquisition",)),
-    "BACKUP-DELETE": SuitePlan("unsupported", ("privacy",)),
+    "BACKUP-DELETE": SuitePlan("unsupported", ("privacy", "protected-store")),
     "BUNDLE": SuitePlan("passed", ("acquisition",)),
     "CAP-NODE": SuitePlan("passed", ("capture-node",)),
-    "CAP-NORMALIZE": SuitePlan("passed", ("evidence", "capture-python", "capture-node")),
+    "CAP-NORMALIZE": SuitePlan(
+        "passed", ("evidence", "capture-python", "capture-node")
+    ),
     "CAP-PY": SuitePlan("passed", ("capture-python",)),
     "DISC-DYNAMIC": SuitePlan("passed", ("discovery",)),
     "DISC-GOLDEN": SuitePlan("passed", ("discovery",)),
@@ -106,14 +110,16 @@ SUITE_PLAN = {
     "GIT-HTTPS": SuitePlan("unsupported", ("acquisition",)),
     "GIT-LOCAL": SuitePlan("passed", ("acquisition",)),
     "GIT-SSH-BROKER": SuitePlan("unsupported", ("acquisition",)),
-    "KEYSTORE-PERSISTENT": SuitePlan("unsupported", ("privacy",)),
+    "KEYSTORE-PERSISTENT": SuitePlan("unsupported", ("privacy", "protected-store")),
     "NONMUTATION": SuitePlan("passed", ("acquisition", "source-guard")),
     "OTLP-GRPC": SuitePlan("passed", ("evidence",)),
     "OTLP-HTTP": SuitePlan("passed", ("evidence",)),
     "OTLP-MAPPING": SuitePlan("passed", ("evidence",)),
     "PATH": SuitePlan("passed", ("acquisition",)),
-    "PRIV-CANARY": SuitePlan("passed", ("evidence", "privacy", "capture-python", "capture-node")),
-    "PRIV-DEL": SuitePlan("unsupported", ("privacy",)),
+    "PRIV-CANARY": SuitePlan(
+        "passed", ("evidence", "privacy", "capture-python", "capture-node")
+    ),
+    "PRIV-DEL": SuitePlan("unsupported", ("privacy", "protected-store")),
     "PROTECTED-DIGEST": SuitePlan("passed", ("source-guard",)),
     "SOURCE-STATUS": SuitePlan("passed", ("source-guard",)),
     "TREE-SITTER-PINNED": SuitePlan("passed", ("lock", "discovery")),
@@ -214,14 +220,24 @@ def result_digest(
     )
 
 
-def build_receipt(source_head: str, evidence: dict[str, CommandEvidence]) -> Phase4EvidenceReceipt:
+def build_receipt(
+    source_head: str, evidence: dict[str, CommandEvidence]
+) -> Phase4EvidenceReceipt:
     records = []
     for suite_id, plan in sorted(SUITE_PLAN.items()):
         missing = [label for label in plan.evidence_labels if label not in evidence]
         if missing:
-            raise RuntimeError(f"Phase 4 suite {suite_id} lacks command evidence: {', '.join(missing)}")
+            raise RuntimeError(
+                f"Phase 4 suite {suite_id} lacks command evidence: {', '.join(missing)}"
+            )
         command_evidence = tuple(evidence[label] for label in plan.evidence_labels)
-        records.append(EvidenceRecord(suite_id, result_digest(suite_id, plan.status, command_evidence), plan.status))
+        records.append(
+            EvidenceRecord(
+                suite_id,
+                result_digest(suite_id, plan.status, command_evidence),
+                plan.status,
+            )
+        )
     return Phase4EvidenceReceipt(
         schema_version="promptectomy.phase4-evidence.v1",
         source_head=source_head,
@@ -238,14 +254,24 @@ def receipt_document(receipt: Phase4EvidenceReceipt) -> dict[str, object]:
     }
 
 
-def write_outputs(receipt: Phase4EvidenceReceipt) -> tuple[dict[str, object], dict[str, object]]:
+def write_outputs(
+    receipt: Phase4EvidenceReceipt,
+) -> tuple[dict[str, object], dict[str, object]]:
     receipt_value = receipt_document(receipt)
     matrix = json.loads(
-        json.dumps(build_phase4_support_matrix(receipt=receipt, receipt_id=receipt.receipt_id()))
+        json.dumps(
+            build_phase4_support_matrix(
+                receipt=receipt, receipt_id=receipt.receipt_id()
+            )
+        )
     )
     RECEIPT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    RECEIPT_PATH.write_text(json.dumps(receipt_value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    MATRIX_PATH.write_text(json.dumps(matrix, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    RECEIPT_PATH.write_text(
+        json.dumps(receipt_value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    MATRIX_PATH.write_text(
+        json.dumps(matrix, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return receipt_value, matrix
 
 
@@ -254,7 +280,9 @@ def verify_tracked_outputs() -> None:
         receipt_value = parse_json_strict(RECEIPT_PATH.read_bytes())
         matrix_value = parse_json_strict(MATRIX_PATH.read_bytes())
     except (OSError, ContractError) as exc:
-        raise RuntimeError("Phase 4 tracked acceptance outputs are missing or invalid") from exc
+        raise RuntimeError(
+            "Phase 4 tracked acceptance outputs are missing or invalid"
+        ) from exc
     if not isinstance(receipt_value, dict) or set(receipt_value) != {
         "schema_version",
         "source_head",
@@ -273,7 +301,8 @@ def verify_tracked_outputs() -> None:
                 status=record["status"],
             )
             for record in raw_records
-            if isinstance(record, dict) and set(record) == {"suite_id", "result_digest", "status"}
+            if isinstance(record, dict)
+            and set(record) == {"suite_id", "result_digest", "status"}
         )
         receipt = Phase4EvidenceReceipt(
             schema_version=receipt_value["schema_version"],
@@ -282,10 +311,17 @@ def verify_tracked_outputs() -> None:
         )
     except (KeyError, TypeError) as exc:
         raise RuntimeError("Phase 4 tracked receipt records are invalid") from exc
-    if len(records) != len(raw_records) or receipt.receipt_id() != receipt_value["receipt_id"]:
+    if (
+        len(records) != len(raw_records)
+        or receipt.receipt_id() != receipt_value["receipt_id"]
+    ):
         raise RuntimeError("Phase 4 tracked receipt is not content-bound")
     expected_matrix = json.loads(
-        json.dumps(build_phase4_support_matrix(receipt=receipt, receipt_id=receipt.receipt_id()))
+        json.dumps(
+            build_phase4_support_matrix(
+                receipt=receipt, receipt_id=receipt.receipt_id()
+            )
+        )
     )
     if matrix_value != expected_matrix:
         raise RuntimeError("Phase 4 tracked support matrix does not match its receipt")
@@ -312,7 +348,9 @@ def verify_tracked_outputs() -> None:
         check=False,
     )
     if drift.returncode != 0:
-        raise RuntimeError("Phase 4 tracked receipt is stale for a bound implementation path")
+        raise RuntimeError(
+            "Phase 4 tracked receipt is stale for a bound implementation path"
+        )
 
 
 def _pytest(label: str, test_file: str) -> CommandEvidence:
@@ -356,7 +394,14 @@ def _clean_install(temporary: Path) -> tuple[CommandEvidence, ...]:
         ["uv", "build", "--offline", "--wheel", "--out-dir", str(distribution)],
         cwd=ENGINE_ROOT,
         cwd_label="engine",
-        display_command=("uv", "build", "--offline", "--wheel", "--out-dir", "$TEMPORARY/dist"),
+        display_command=(
+            "uv",
+            "build",
+            "--offline",
+            "--wheel",
+            "--out-dir",
+            "$TEMPORARY/dist",
+        ),
         replacements=replacements,
     )
     wheels = sorted(distribution.glob("promptectomy-*.whl"))
@@ -415,7 +460,13 @@ def _clean_install(temporary: Path) -> tuple[CommandEvidence, ...]:
 def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
     protected = ENGINE_ROOT / "promptectomy" / "generated" / "route_ticket.py"
     protected_status = subprocess.run(
-        ["git", "status", "--porcelain=v1", "--", "engine/promptectomy/generated/route_ticket.py"],
+        [
+            "git",
+            "status",
+            "--porcelain=v1",
+            "--",
+            "engine/promptectomy/generated/route_ticket.py",
+        ],
         cwd=REPOSITORY_ROOT,
         env={"PATH": os.environ["PATH"]},
         stdin=subprocess.DEVNULL,
@@ -425,9 +476,18 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
         timeout=10,
         check=False,
     )
-    expected_protected_digest = PROTECTED_DIGEST if protected_status.stdout.strip() else PROTECTED_TRACKED_DIGEST
-    if protected_status.returncode != 0 or file_digest(protected) != expected_protected_digest:
-        raise RuntimeError("protected route file digest changed before Phase 4 acceptance")
+    expected_protected_digest = (
+        PROTECTED_DIGEST
+        if protected_status.stdout.strip()
+        else PROTECTED_TRACKED_DIGEST
+    )
+    if (
+        protected_status.returncode != 0
+        or file_digest(protected) != expected_protected_digest
+    ):
+        raise RuntimeError(
+            "protected route file digest changed before Phase 4 acceptance"
+        )
     source_head_result = run_command(
         "source-head",
         ["git", "rev-parse", "HEAD"],
@@ -449,7 +509,10 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
         cwd=REPOSITORY_ROOT,
         cwd_label="repository",
     )
-    if "engine/promptectomy/generated/route_ticket.py" in staged_before.stdout.splitlines():
+    if (
+        "engine/promptectomy/generated/route_ticket.py"
+        in staged_before.stdout.splitlines()
+    ):
         raise RuntimeError("protected route file is staged before Phase 4 acceptance")
 
     evidence: dict[str, CommandEvidence] = {}
@@ -461,12 +524,36 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
     )
     evidence["acquisition"] = run_command(
         "acquisition",
-        ["cargo", "test", "-q", "-p", "promptectomy-acquisition", "--locked", "--offline"],
+        [
+            "cargo",
+            "test",
+            "-q",
+            "-p",
+            "promptectomy-acquisition",
+            "--locked",
+            "--offline",
+        ],
+        cwd=RUST_ROOT,
+        cwd_label="rust",
+    )
+    evidence["protected-store"] = run_command(
+        "protected-store",
+        [
+            "cargo",
+            "test",
+            "-q",
+            "-p",
+            "promptectomy-protected-store",
+            "--locked",
+            "--offline",
+        ],
         cwd=RUST_ROOT,
         cwd_label="rust",
     )
     evidence["discovery"] = _pytest("discovery", "tests/test_phase4_discovery.py")
-    evidence["capture-python"] = _pytest("capture-python", "tests/test_phase4_capture_python.py")
+    evidence["capture-python"] = _pytest(
+        "capture-python", "tests/test_phase4_capture_python.py"
+    )
     node_install = run_command(
         "capture-node-install",
         ["bun", "install", "--frozen-lockfile"],
@@ -492,7 +579,10 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
         returncode=0,
         stdout=_sha256(
             rfc8785.dumps(
-                [item.canonical_value() for item in (node_install, node_typecheck, node_tests)]
+                [
+                    item.canonical_value()
+                    for item in (node_install, node_typecheck, node_tests)
+                ]
             )
         ),
         stderr="",
@@ -501,7 +591,9 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
     evidence["privacy"] = _pytest("privacy", "tests/test_phase4_privacy.py")
     evidence["support"] = _pytest("support", "tests/test_phase4_support_matrix.py")
 
-    with tempfile.TemporaryDirectory(prefix="promptectomy-phase4-clean-") as temporary_name:
+    with tempfile.TemporaryDirectory(
+        prefix="promptectomy-phase4-clean-"
+    ) as temporary_name:
         clean = _clean_install(Path(temporary_name))
     combined = CommandEvidence(
         label="clean-install",
@@ -533,10 +625,15 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
     )
     if source_head_after.stdout != source_head:
         raise RuntimeError("Phase 4 source HEAD changed during conformance")
-    if status_after.stdout != status_before.stdout or staged_after.stdout != staged_before.stdout:
+    if (
+        status_after.stdout != status_before.stdout
+        or staged_after.stdout != staged_before.stdout
+    ):
         raise RuntimeError("Phase 4 conformance changed source or index status")
     if file_digest(protected) != expected_protected_digest:
-        raise RuntimeError("protected route file digest changed during Phase 4 acceptance")
+        raise RuntimeError(
+            "protected route file digest changed during Phase 4 acceptance"
+        )
     source_guard_value = {
         "protected_digest_valid": True,
         "protected_staged": False,
@@ -571,8 +668,12 @@ def main() -> int:
             {
                 "receipt_id": receipt_value["receipt_id"],
                 "records": len(receipt.records),
-                "stable_cells": sum(cell["state"] == "stable" for cell in matrix["cells"]),
-                "unsupported_cells": sum(cell["state"] == "unsupported" for cell in matrix["cells"]),
+                "stable_cells": sum(
+                    cell["state"] == "stable" for cell in matrix["cells"]
+                ),
+                "unsupported_cells": sum(
+                    cell["state"] == "unsupported" for cell in matrix["cells"]
+                ),
             },
             separators=(",", ":"),
             sort_keys=True,

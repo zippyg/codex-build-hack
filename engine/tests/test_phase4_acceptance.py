@@ -54,10 +54,15 @@ def test_result_digest_is_domain_separated_and_binds_real_command_evidence() -> 
     assert len(first) == 71
     assert result_digest("DISC-TS", "passed", evidence) != first
     assert result_digest("DISC-PY", "unsupported", evidence) != first
-    assert result_digest("DISC-PY", "passed", (replace(evidence[0], stdout="different"),)) != first
+    assert (
+        result_digest("DISC-PY", "passed", (replace(evidence[0], stdout="different"),))
+        != first
+    )
 
 
-def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupported() -> None:
+def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupported() -> (
+    None
+):
     receipt = build_receipt("a" * 40, _all_evidence())
     records = {record.suite_id: record for record in receipt.records}
     expected_passed = {
@@ -87,7 +92,9 @@ def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupporte
     assert records["PRIV-DEL"].status == "unsupported"
     assert records["CAP-PY"].status == "passed"
     assert records["WHEEL-CLEAN"].status == "passed"
-    assert len({record.result_digest for record in receipt.records}) == len(receipt.records)
+    assert len({record.result_digest for record in receipt.records}) == len(
+        receipt.records
+    )
 
 
 def test_missing_command_evidence_fails_closed() -> None:
@@ -132,9 +139,20 @@ def test_receipt_identifier_changes_with_source_or_command_evidence() -> None:
     original = build_receipt("a" * 40, evidence)
     changed_head = build_receipt("b" * 40, evidence)
     changed_evidence = dict(evidence)
-    changed_evidence["acquisition"] = replace(changed_evidence["acquisition"], stdout="17 tests passed")
+    changed_evidence["acquisition"] = replace(
+        changed_evidence["acquisition"], stdout="17 tests passed"
+    )
     changed_result = build_receipt("a" * 40, changed_evidence)
-    assert len({original.receipt_id(), changed_head.receipt_id(), changed_result.receipt_id()}) == 3
+    assert (
+        len(
+            {
+                original.receipt_id(),
+                changed_head.receipt_id(),
+                changed_result.receipt_id(),
+            }
+        )
+        == 3
+    )
 
 
 def test_receipt_document_contains_only_content_bound_payload_and_identifier() -> None:
@@ -144,8 +162,12 @@ def test_receipt_document_contains_only_content_bound_payload_and_identifier() -
     assert value["receipt_id"] == receipt.receipt_id()
 
 
-def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests() -> None:
-    assert phase4_acceptance.PROTECTED_DIGEST != phase4_acceptance.PROTECTED_TRACKED_DIGEST
+def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests() -> (
+    None
+):
+    assert (
+        phase4_acceptance.PROTECTED_DIGEST != phase4_acceptance.PROTECTED_TRACKED_DIGEST
+    )
     assert len(phase4_acceptance.PROTECTED_DIGEST) == 64
     assert len(phase4_acceptance.PROTECTED_TRACKED_DIGEST) == 64
 
@@ -172,6 +194,8 @@ def test_tracked_output_verification_rejects_stale_bound_paths(
             self.returncode = returncode
 
     results = iter((_Result(0), _Result(1)))
-    monkeypatch.setattr(phase4_acceptance.subprocess, "run", lambda *args, **kwargs: next(results))
+    monkeypatch.setattr(
+        phase4_acceptance.subprocess, "run", lambda *args, **kwargs: next(results)
+    )
     with pytest.raises(RuntimeError, match="stale"):
         verify_tracked_outputs()
