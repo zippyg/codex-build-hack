@@ -15,6 +15,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "hatchling==1.31.0",
     "pytest>=8.3",
     "pytest-socket>=0.7",
 ]
@@ -23,7 +24,7 @@ dev = [
 promptectomy = "promptectomy.cli:app"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
@@ -31,3 +32,21 @@ artifacts = ["promptectomy/schema_assets/*.json", "promptectomy/executor_image/D
 
 [tool.hatch.build.targets.wheel]
 packages = ["promptectomy"]
+exclude = [
+    "/promptectomy/contracts.py",
+    "/promptectomy/events.py",
+    "/promptectomy/generated/**",
+    "/promptectomy/guard.py",
+    "/promptectomy/ledger.py",
+    "/promptectomy/pricing.py",
+    "/promptectomy/replay.py",
+    "/promptectomy/scan.py",
+    "/promptectomy/schemas.py",
+    "/promptectomy/scoring.py",
+    "/promptectomy/server.py",
+    "/promptectomy/shim.py",
+    "/promptectomy/splitting.py",
+    "/promptectomy/synthesize.py",
+    "/promptectomy/verify.py",
+    "/promptectomy/worktrees.py",
+]

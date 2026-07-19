@@ -1,0 +1,406 @@
+{
+  "accepted_at": "2026-07-19T09:02:14.546662+00:00",
+  "artifact": {
+    "filename": "promptectomy-0.1.0-py3-none-any.whl",
+    "files": [
+      "promptectomy/__init__.py",
+      "promptectomy/cli.py",
+      "promptectomy/connector.py",
+      "promptectomy/executor.py",
+      "promptectomy/executor_contracts.py",
+      "promptectomy/reference.py",
+      "promptectomy/reference_contracts.py",
+      "promptectomy/executor_image/Dockerfile",
+      "promptectomy/executor_image/__init__.py",
+      "promptectomy/executor_image/runner.py",
+      "promptectomy/schema_assets/__init__.py",
+      "promptectomy/schema_assets/audit-v1.json",
+      "promptectomy/schema_assets/draft-candidate-v1.json",
+      "promptectomy/schema_assets/synthesis-result-v1.json",
+      "promptectomy/schema_assets/verdict-v1.json",
+      "promptectomy-0.1.0.dist-info/METADATA",
+      "promptectomy-0.1.0.dist-info/WHEEL",
+      "promptectomy-0.1.0.dist-info/entry_points.txt",
+      "promptectomy-0.1.0.dist-info/RECORD"
+    ],
+    "reproducible_builds": 2,
+    "sha256": "5465a0b24472ba3a9ea890a92277457fa58b2744255974eb125bb8a78473236c",
+    "size_bytes": 46702
+  },
+  "boundaries": {
+    "child_processes_after_tests": 0,
+    "generated_code_packaged": false,
+    "installed_outside_source_tree": true,
+    "legacy_execution_modules_packaged": false,
+    "offline_install_passed": true,
+    "owned_containers_after_tests": 0,
+    "package_uninstalled_from_both_environments": true,
+    "python_network_disabled_during_tests": true,
+    "source_status_unchanged": true
+  },
+  "dependencies": [
+    {
+      "homepage": "Homepage, https://github.com/fastapi/annotated-doc",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "annotated-doc",
+      "version": "0.0.4"
+    },
+    {
+      "homepage": "Homepage, https://github.com/annotated-types/annotated-types",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "annotated-types",
+      "version": "0.7.0"
+    },
+    {
+      "homepage": "Documentation, https://anyio.readthedocs.io/en/latest/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "anyio",
+      "version": "4.14.2"
+    },
+    {
+      "homepage": "https://github.com/awolverp/cachebox",
+      "license": "MIT",
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "cachebox",
+      "version": "5.2.3"
+    },
+    {
+      "homepage": "https://github.com/certifi/python-certifi",
+      "license": "MPL-2.0",
+      "license_classifiers": [
+        "OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "license_expression": null,
+      "name": "certifi",
+      "version": "2026.6.17"
+    },
+    {
+      "homepage": "Changes, https://click.palletsprojects.com/page/changes/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "BSD-3-Clause",
+      "name": "click",
+      "version": "8.4.2"
+    },
+    {
+      "homepage": "Documentation, https://zepworks.com/deepdiff/",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "deepdiff",
+      "version": "9.1.0"
+    },
+    {
+      "homepage": "https://github.com/python-distro/distro",
+      "license": "Apache License, Version 2.0",
+      "license_classifiers": [
+        "OSI Approved :: Apache Software License"
+      ],
+      "license_expression": null,
+      "name": "distro",
+      "version": "1.9.0"
+    },
+    {
+      "homepage": "Homepage, https://github.com/fastapi/fastapi",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "fastapi",
+      "version": "0.139.2"
+    },
+    {
+      "homepage": "https://github.com/python-hyper/h11",
+      "license": "MIT",
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "h11",
+      "version": "0.16.0"
+    },
+    {
+      "homepage": "Homepage, https://hatch.pypa.io/latest/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "hatchling",
+      "version": "1.31.0"
+    },
+    {
+      "homepage": "Documentation, https://www.encode.io/httpcore",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: BSD License"
+      ],
+      "license_expression": "BSD-3-Clause",
+      "name": "httpcore",
+      "version": "1.0.9"
+    },
+    {
+      "homepage": "Changelog, https://github.com/encode/httpx/blob/master/CHANGELOG.md",
+      "license": "BSD-3-Clause",
+      "license_classifiers": [
+        "OSI Approved :: BSD License"
+      ],
+      "license_expression": null,
+      "name": "httpx",
+      "version": "0.28.1"
+    },
+    {
+      "homepage": "Changelog, https://github.com/kjd/idna/blob/master/HISTORY.md",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "BSD-3-Clause",
+      "name": "idna",
+      "version": "3.18"
+    },
+    {
+      "homepage": "Homepage, https://github.com/pytest-dev/iniconfig",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "iniconfig",
+      "version": "2.3.0"
+    },
+    {
+      "homepage": "https://github.com/pydantic/jiter/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "jiter",
+      "version": "0.16.0"
+    },
+    {
+      "homepage": "Documentation, https://markdown-it-py.readthedocs.io",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "markdown-it-py",
+      "version": "4.2.0"
+    },
+    {
+      "homepage": "Homepage, https://github.com/executablebooks/mdurl",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "mdurl",
+      "version": "0.1.2"
+    },
+    {
+      "homepage": "Homepage, https://github.com/openai/openai-python",
+      "license": "Apache-2.0",
+      "license_classifiers": [
+        "OSI Approved :: Apache Software License"
+      ],
+      "license_expression": null,
+      "name": "openai",
+      "version": "2.46.0"
+    },
+    {
+      "homepage": "Download, https://github.com/seperman/orderly-set/tarball/master",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "orderly-set",
+      "version": "5.5.0"
+    },
+    {
+      "homepage": "Documentation, https://packaging.pypa.io/",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "Apache-2.0 OR BSD-2-Clause",
+      "name": "packaging",
+      "version": "26.2"
+    },
+    {
+      "homepage": "Change Log, https://python-path-specification.readthedocs.io/en/latest/changes.html",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "license_expression": null,
+      "name": "pathspec",
+      "version": "1.1.1"
+    },
+    {
+      "homepage": null,
+      "license": "MIT",
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "pluggy",
+      "version": "1.6.0"
+    },
+    {
+      "homepage": null,
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": null,
+      "name": "promptectomy",
+      "version": "0.1.0"
+    },
+    {
+      "homepage": "Homepage, https://github.com/pydantic/pydantic",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "pydantic",
+      "version": "2.13.4"
+    },
+    {
+      "homepage": "https://github.com/pydantic/pydantic",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "pydantic_core",
+      "version": "2.46.4"
+    },
+    {
+      "homepage": "Homepage, https://pygments.org",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "BSD-2-Clause",
+      "name": "Pygments",
+      "version": "2.20.0"
+    },
+    {
+      "homepage": "Changelog, https://docs.pytest.org/en/stable/changelog.html",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "pytest",
+      "version": "9.1.1"
+    },
+    {
+      "homepage": "Homepage, https://pypi.org/project/pytest-socket/",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": "MIT",
+      "name": "pytest-socket",
+      "version": "0.8.0"
+    },
+    {
+      "homepage": "Documentation, https://rich.readthedocs.io/en/latest/",
+      "license": "MIT",
+      "license_classifiers": [
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "rich",
+      "version": "15.0.0"
+    },
+    {
+      "homepage": "https://github.com/sarugaku/shellingham",
+      "license": "ISC License",
+      "license_classifiers": [
+        "OSI Approved :: ISC License (ISCL)"
+      ],
+      "license_expression": null,
+      "name": "shellingham",
+      "version": "1.5.4"
+    },
+    {
+      "homepage": "Homepage, https://github.com/python-trio/sniffio",
+      "license": "MIT OR Apache-2.0",
+      "license_classifiers": [
+        "OSI Approved :: Apache Software License",
+        "OSI Approved :: MIT License"
+      ],
+      "license_expression": null,
+      "name": "sniffio",
+      "version": "1.3.1"
+    },
+    {
+      "homepage": "Homepage, https://github.com/Kludex/starlette",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "BSD-3-Clause",
+      "name": "starlette",
+      "version": "1.3.1"
+    },
+    {
+      "homepage": "homepage, https://tqdm.github.io",
+      "license": "MPL-2.0 AND MIT",
+      "license_classifiers": [],
+      "license_expression": null,
+      "name": "tqdm",
+      "version": "4.69.0"
+    },
+    {
+      "homepage": "https://github.com/pypa/trove-classifiers",
+      "license": null,
+      "license_classifiers": [
+        "OSI Approved :: Apache Software License"
+      ],
+      "license_expression": null,
+      "name": "trove-classifiers",
+      "version": "2026.6.1.19"
+    },
+    {
+      "homepage": "Homepage, https://github.com/fastapi/typer",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "typer",
+      "version": "0.27.0"
+    },
+    {
+      "homepage": "Homepage, https://github.com/pydantic/typing-inspection",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "MIT",
+      "name": "typing-inspection",
+      "version": "0.4.2"
+    },
+    {
+      "homepage": "Bug Tracker, https://github.com/python/typing_extensions/issues",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "PSF-2.0",
+      "name": "typing_extensions",
+      "version": "4.16.0"
+    },
+    {
+      "homepage": "Changelog, https://uvicorn.dev/release-notes",
+      "license": null,
+      "license_classifiers": [],
+      "license_expression": "BSD-3-Clause",
+      "name": "uvicorn",
+      "version": "0.51.0"
+    }
+  ],
+  "executor_image": "sha256:23b8908a955aa2b7eb602845e08b50e1821d072ed67e510580d2392fbffec4f0",
+  "license_gate": {
+    "dependency_metadata_complete": true,
+    "project_license": "unapproved"
+  },
+  "requirements_sha256": "ec3677b84b14f26d90d70b4a64b0691272ea485892e6ca7983e6cd9afbdfd685",
+  "schema_version": "phase1c-1",
+  "test_result": "83 passed in 18.97s",
+  "toolchain": {
+    "python": "Python 3.12.8",
+    "uv": "uv 0.11.26 (Homebrew 2026-06-30 aarch64-apple-darwin)"
+  }
+}
