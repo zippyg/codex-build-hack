@@ -1,5 +1,5 @@
 {
-  "receipt_id": "receipt_sha256_6a3e9e970a29a87dc1fb29f59e23c455f1d66028878f16552f1a70c530fc1919",
+  "receipt_id": "receipt_sha256_a7b09358e595582f390db44b20b99574757bed96f5c83c7d2bc26fcabad7f8b6",
   "records": [
     {
       "result_digest": "sha256:58637ec4ff2918b73a68666a373f84e992fc4cb41f270eeda3016cc2cfc06dda",
@@ -77,7 +77,7 @@
       "suite_id": "KEYSTORE-PERSISTENT"
     },
     {
-      "result_digest": "sha256:b3bed51872af2134e0c59155e7e3c79dc404312f66c85cadcc6da2998f3b8019",
+      "result_digest": "sha256:523ce6addf414dfc017d6f1c2176cb64da7fc98930b94ddb777b57f956d6bdba",
       "status": "passed",
       "suite_id": "NONMUTATION"
     },
@@ -112,12 +112,12 @@
       "suite_id": "PRIV-DEL"
     },
     {
-      "result_digest": "sha256:78e16d085119b321204fe1de5375bebff3bdeed7a92b0302fed6f8bed0baebf9",
+      "result_digest": "sha256:adfea41a9733991e4e93cc800dd6c5bbef4865736984b3f4c4a14191c46f6e3c",
       "status": "passed",
       "suite_id": "PROTECTED-DIGEST"
     },
     {
-      "result_digest": "sha256:dcf5ab5dbcdd13e824f196bd26bd9740e8a276dc72de42ecbc61e41667a794a1",
+      "result_digest": "sha256:3e4cfb177e662e695ba464e9ac05c02e866a7dd0178a7932d84f982d4888dfff",
       "status": "passed",
       "suite_id": "SOURCE-STATUS"
     },
@@ -133,5 +133,5 @@
     }
   ],
   "schema_version": "promptectomy.phase4-evidence.v1",
-  "source_head": "99f9bc9c7f40a78696ce43a40e8d983f25c7faad"
+  "source_head": "be222b5dc74ef095b14c52714cab596086692afa"
 }

@@ -10,7 +10,7 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": null,
+      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
       "operation": "immutable_snapshot",
       "provider": "local",
       "state": "stable"
@@ -25,7 +25,7 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": null,
+      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
       "operation": "validated_snapshot",
       "provider": "ustar",
       "state": "stable"
@@ -40,7 +40,7 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": null,
+      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
       "operation": "validated_snapshot",
       "provider": "source_bundle",
       "state": "stable"
@@ -266,6 +266,6 @@
     }
   ],
   "phase": 4,
-  "receipt_id": "receipt_sha256_6a3e9e970a29a87dc1fb29f59e23c455f1d66028878f16552f1a70c530fc1919",
+  "receipt_id": "receipt_sha256_a7b09358e595582f390db44b20b99574757bed96f5c83c7d2bc26fcabad7f8b6",
   "schema_version": "promptectomy.support-matrix.v1"
 }
