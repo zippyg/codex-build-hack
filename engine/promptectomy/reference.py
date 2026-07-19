@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import hashlib
 import json
 import os
@@ -18,6 +17,10 @@ from urllib.parse import urlparse
 from pydantic import ValidationError
 
 from .connector import ConnectorCancelled, ConnectorFailure, ResponsesConnector
+from .discovery_javascript import ADAPTER_VERSION as JAVASCRIPT_ADAPTER_VERSION
+from .discovery_javascript import discover_javascript
+from .discovery_python import ADAPTER_VERSION as PYTHON_ADAPTER_VERSION
+from .discovery_python import discover_python
 from .reference_contracts import (
     AuthoritySummary,
     Callsite,
@@ -453,169 +456,70 @@ def _entity_ref(relative: str) -> str:
     return _opaque("entry", relative)
 
 
-def _unsupported(code: str, relative: str, highest: Literal["L0", "L1"], next_action: str) -> UnsupportedArea:
+def _unsupported(
+    code: str,
+    relative: str,
+    highest: Literal["L0", "L1"],
+    next_action: str,
+    *,
+    adapter: str = "phase1a-static-1",
+) -> UnsupportedArea:
     return UnsupportedArea(
         code=code,
         entity_ref=_entity_ref(relative),
-        adapter="phase1a-static-1",
+        adapter=adapter,
         highest_level=highest,
         next_action=next_action,
     )
 
 
-def _features_from_python(node: ast.Call) -> list[str]:
-    names = {keyword.arg for keyword in node.keywords if keyword.arg is not None}
-    features = ["synchronous"]
-    if "stream" in names:
-        features.append("streaming_declared")
-    if "tools" in names:
-        features.append("tools_declared")
-    if "text" in names or "response_format" in names:
-        features.append("structured_output_declared")
-    return features
-
-
-def _attribute_chain(node: ast.expr) -> list[str]:
-    values: list[str] = []
-    current: ast.expr = node
-    while isinstance(current, ast.Attribute):
-        values.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        values.append(current.id)
-    return list(reversed(values))
-
-
 def _python_callsites(source: bytes, relative: str, snapshot_digest: str) -> tuple[list[Callsite], list[UnsupportedArea]]:
-    try:
-        text = source.decode("utf-8")
-        tree = ast.parse(text)
-    except (UnicodeDecodeError, SyntaxError) as exc:
-        raise ValueError("malformed_source") from exc
-    found: list[Callsite] = []
-    unsupported: list[UnsupportedArea] = []
-    imported_anthropic = any(
-        (isinstance(node, ast.Import) and any(alias.name == "anthropic" or alias.name.startswith("anthropic.") for alias in node.names))
-        or (isinstance(node, ast.ImportFrom) and node.module is not None and (node.module == "anthropic" or node.module.startswith("anthropic.")))
-        for node in ast.walk(tree)
-    )
-    if imported_anthropic:
-        unsupported.append(_unsupported("unsupported_provider", relative, "L0", "Use the OpenAI Responses adapter or add a reviewed provider adapter."))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        chain = _attribute_chain(node.func)
-        if chain[-3:] == ["chat", "completions", "create"]:
-            unsupported.append(_unsupported("unsupported_operation", relative, "L0", "Migrate or separately adapt this Chat Completions callsite."))
-            continue
-        if chain[-2:] == ["ChatCompletion", "create"]:
-            unsupported.append(_unsupported("unsupported_sdk_version", relative, "L0", "Migrate the legacy OpenAI SDK surface before analysis."))
-            continue
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "create" and isinstance(node.func.value, ast.Call):
-            dynamic = node.func.value
-            if isinstance(dynamic.func, ast.Name) and dynamic.func.id == "getattr":
-                unsupported.append(_unsupported("ambiguous_dynamic_callsite", relative, "L0", "Replace dynamic provider dispatch with a statically bindable callsite."))
-            continue
-        if chain[-2:] != ["responses", "create"]:
-            continue
-        identity = f"{snapshot_digest}\0{relative}\0{node.lineno}\0responses.create"
-        found.append(
-            Callsite(
-                callsite_id=_opaque("cs", identity),
-                path_ref=_opaque("path", relative),
-                line=node.lineno,
-                language="python",
-                features=_features_from_python(node),
-            )
-        )
+    result = discover_python(source)
+    found = [
+        _callsite_from_discovery(item, relative, snapshot_digest, PYTHON_ADAPTER_VERSION)
+        for item in result.calls
+    ]
+    unsupported = [
+        _unsupported(item.code, relative, item.highest_level, item.next_action, adapter=PYTHON_ADAPTER_VERSION)
+        for item in result.gaps
+    ]
     return found, unsupported
 
 
-_TS_CALL = re.compile(r"\.responses\.create\s*\(")
-_TS_CHAT_CALL = re.compile(r"\.chat\.completions\.create\s*\(")
-
-
-def _javascript_code_mask(text: str) -> str:
-    output = list(text)
-    index = 0
-    state: Literal["code", "line_comment", "block_comment", "single", "double", "template"] = "code"
-    while index < len(text):
-        character = text[index]
-        next_character = text[index + 1] if index + 1 < len(text) else ""
-        if state == "code":
-            if character == "/" and next_character == "/":
-                output[index] = output[index + 1] = " "
-                state = "line_comment"
-                index += 2
-                continue
-            if character == "/" and next_character == "*":
-                output[index] = output[index + 1] = " "
-                state = "block_comment"
-                index += 2
-                continue
-            if character in {"'", '"', "`"}:
-                output[index] = " "
-                state = {"'": "single", '"': "double", "`": "template"}[character]
-        elif state == "line_comment":
-            if character == "\n":
-                state = "code"
-            else:
-                output[index] = " "
-        elif state == "block_comment":
-            if character == "*" and next_character == "/":
-                output[index] = output[index + 1] = " "
-                state = "code"
-                index += 2
-                continue
-            if character != "\n":
-                output[index] = " "
-        else:
-            if character == "\\" and next_character:
-                if character != "\n":
-                    output[index] = " "
-                if next_character != "\n":
-                    output[index + 1] = " "
-                index += 2
-                continue
-            closing = {"single": "'", "double": '"', "template": "`"}[state]
-            if character == closing:
-                output[index] = " "
-                state = "code"
-            elif character != "\n":
-                output[index] = " "
-        index += 1
-    return "".join(output)
+def _callsite_from_discovery(item, relative: str, snapshot_digest: str, adapter_version: str) -> Callsite:
+    adapter_version = item.adapter_version or adapter_version
+    enclosing_symbol_ref = _opaque("symbol", f"{relative}\0{item.enclosing_symbol}")
+    identity = (
+        f"{snapshot_digest}\0{relative}\0{item.enclosing_symbol}\0{item.operation}"
+        f"\0{item.normalized_ast_digest}\0{item.ast_ordinal}\0{adapter_version}"
+    )
+    return Callsite(
+        callsite_id=_opaque("cs", identity),
+        path_ref=_opaque("path", relative),
+        line=item.line,
+        language=item.language,
+        operation=item.operation,
+        stability=item.stability,
+        adapter_version=adapter_version,
+        normalized_ast_digest=item.normalized_ast_digest,
+        ast_ordinal=item.ast_ordinal,
+        enclosing_symbol_ref=enclosing_symbol_ref,
+        features=list(item.features),
+    )
 
 
 def _javascript_callsites(
     source: bytes, relative: str, snapshot_digest: str, language: str
 ) -> tuple[list[Callsite], list[UnsupportedArea]]:
-    try:
-        text = source.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ValueError("malformed_source") from exc
-    code = _javascript_code_mask(text)
-    found: list[Callsite] = []
-    unsupported: list[UnsupportedArea] = []
-    if re.search(r"(?m)^\s*(?:import\s+.+\s+from\s+['\"]@?anthropic|(?:const|let|var)\s+.+?=\s*require\(['\"]@?anthropic)", code):
-        unsupported.append(_unsupported("unsupported_provider", relative, "L0", "Use the OpenAI Responses adapter or add a reviewed provider adapter."))
-    if _TS_CHAT_CALL.search(code):
-        unsupported.append(_unsupported("unsupported_operation", relative, "L0", "Migrate or separately adapt this Chat Completions callsite."))
-    text_lines = text.splitlines()
-    for match in _TS_CALL.finditer(code):
-        line = code.count("\n", 0, match.start()) + 1
-        current_line = text_lines[line - 1] if text_lines else ""
-        features = ["asynchronous"] if "await" in current_line else ["synchronous"]
-        identity = f"{snapshot_digest}\0{relative}\0{line}\0responses.create"
-        found.append(
-            Callsite(
-                callsite_id=_opaque("cs", identity),
-                path_ref=_opaque("path", relative),
-                line=line,
-                language=language,
-                features=features,
-            )
-        )
+    result = discover_javascript(source, language, relative=relative)
+    found = [
+        _callsite_from_discovery(item, relative, snapshot_digest, JAVASCRIPT_ADAPTER_VERSION)
+        for item in result.calls
+    ]
+    unsupported = [
+        _unsupported(item.code, relative, item.highest_level, item.next_action, adapter=JAVASCRIPT_ADAPTER_VERSION)
+        for item in result.gaps
+    ]
     return found, unsupported
 
 
@@ -1004,6 +908,7 @@ def _base_result(
             supported_callsites=len(callsites),
             unsupported_areas=len(unsupported),
             excluded_entries=excluded,
+            feature_coverage=dict(sorted(Counter(feature for item in callsites for feature in item.features).items())),
         ),
         callsites=callsites,
         findings=findings,

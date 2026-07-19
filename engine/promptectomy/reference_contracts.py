@@ -53,6 +53,7 @@ class SupportSummary(Closed):
     supported_callsites: int = Field(ge=0)
     unsupported_areas: int = Field(ge=0)
     excluded_entries: int = Field(ge=0)
+    feature_coverage: dict[str, int] = Field(default_factory=dict)
 
 
 class Callsite(Closed):
@@ -61,9 +62,14 @@ class Callsite(Closed):
     line: int = Field(ge=1)
     language: Literal["python", "typescript", "javascript"]
     provider: Literal["openai"] = "openai"
-    operation: Literal["responses.create"] = "responses.create"
+    operation: Literal["responses.create", "responses.parse"] = "responses.create"
     support_level: Literal["L1"] = "L1"
-    stability: Literal["reference"] = "reference"
+    stability: Literal["reference", "stable"] = "reference"
+    adapter_version: str = "phase1a-static-1"
+    normalized_ast_digest: str = Field(default="sha256:" + "0" * 64, pattern=r"^sha256:[0-9a-f]{64}$")
+    ast_ordinal: int = Field(default=0, ge=0)
+    enclosing_symbol_ref: str = "symbol_legacy"
+    discovery_confidence: Literal["deterministic"] = "deterministic"
     features: list[str]
 
 

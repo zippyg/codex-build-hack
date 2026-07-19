@@ -1,0 +1,13 @@
+{
+  "python/dynamic.py": {"calls": 0, "gaps": ["ambiguous_dynamic_callsite"]},
+  "python/false_positive.py": {"calls": 0, "gaps": []},
+  "python/full_surface.py": {"calls": 1, "gaps": []},
+  "python/structured_parse.py": {"calls": 1, "gaps": []},
+  "python/sync_alias.py": {"calls": 1, "gaps": []},
+  "python/unsupported.py": {"calls": 0, "gaps": ["unsupported_operation", "unsupported_provider", "unsupported_sdk_version"]},
+  "typescript/dynamic.ts": {"calls": 0, "gaps": ["ambiguous_dynamic_callsite"]},
+  "typescript/false_positive.ts": {"calls": 0, "gaps": []},
+  "typescript/full_surface.ts": {"calls": 1, "gaps": []},
+  "typescript/structured_parse.ts": {"calls": 1, "gaps": []},
+  "javascript/commonjs.js": {"calls": 1, "gaps": []}
+}
