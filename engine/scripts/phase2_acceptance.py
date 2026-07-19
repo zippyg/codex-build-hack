@@ -68,7 +68,12 @@ def main() -> int:
     generated_paths = (
         ENGINE_ROOT / "generated" / "contracts_v2" / "python" / "promptectomy_contracts_v2.py",
         ENGINE_ROOT / "generated" / "contracts_v2" / "typescript" / "contracts-v2.ts",
-        ENGINE_ROOT / "generated" / "contracts_v2" / "rust" / "src" / "lib.rs",
+        REPOSITORY_ROOT
+        / "rust"
+        / "crates"
+        / "promptectomy-contracts"
+        / "src"
+        / "generated.rs",
     )
     generated_before = {path: digest(path) for path in generated_paths}
     run(["uv", "run", "python", "scripts/generate_contract_bindings.py"])
@@ -93,7 +98,7 @@ def main() -> int:
                 "--target-dir",
                 target,
                 "--manifest-path",
-                "generated/contracts_v2/rust/Cargo.toml",
+                str(REPOSITORY_ROOT / "rust" / "Cargo.toml"),
             ]
         )
     v2_tests = run(["uv", "run", "pytest", "-q", *V2_TESTS])

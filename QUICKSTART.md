@@ -8,6 +8,8 @@ This walkthrough inspects a synthetic repository without sending data, executing
 - [`uv`](https://docs.astral.sh/uv/)
 - Git
 
+Rust 1.92 is only required for the Rust daemon and canonical state/report CLI.
+
 ## Install from source
 
 ```bash
@@ -59,6 +61,24 @@ PROMPTECTOMY_HOME="$state_dir" uv run promptectomy report RUN_ID --format markdo
 ```
 
 Reports describe support, findings, work performed, limitations, and errors without embedding source bodies or credentials.
+
+## Try the Rust control plane
+
+Build the canonical CLI:
+
+```bash
+cd ../rust
+cargo build --release --bins --locked
+./target/release/promptectomy --json doctor
+```
+
+Run the private local daemon in one terminal:
+
+```bash
+./target/release/promptectomy --json daemon
+```
+
+The Rust CLI currently owns trusted local state, migration, status, watch, cancellation, and JSON or Markdown reports. It does not yet inspect a repository. `inspect`, `audit`, `draft`, and `apply` fail with typed unsupported results until their later safety gates are connected.
 
 ## Next
 

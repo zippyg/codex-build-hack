@@ -1,9 +1,5 @@
-# ---------------------------------------------------------------------------
-# codex-build-hack .gitignore
-# Multi-stack: no application stack chosen yet, so this covers the likely ones
-# (bun/Node/Next + uv/Python) plus secrets, agent state, OS and editor noise.
-# Trim to the real stack once it is chosen.
-# ---------------------------------------------------------------------------
+# PROMPTECTOMY uses Rust, Python, and bun/Next.js. Local state and generated
+# candidates stay outside version control.
 
 # --- Secrets (never commit; commit .env.example instead) ---
 .env

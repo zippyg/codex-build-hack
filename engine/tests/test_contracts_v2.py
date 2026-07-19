@@ -19,7 +19,12 @@ from promptectomy.contracts_v2 import (
     validate_relative_path,
     validate_schema_document,
 )
-from scripts.generate_contract_bindings import OUTPUT_ROOT, SCHEMA_PATH, generate
+from scripts.generate_contract_bindings import (
+    OUTPUT_ROOT,
+    REPOSITORY_ROOT,
+    SCHEMA_PATH,
+    generate,
+)
 from v2_fixtures import run_contract
 
 
@@ -99,7 +104,12 @@ def test_generated_bindings_are_reproducible_and_bound_to_schema() -> None:
     paths = (
         OUTPUT_ROOT / "python" / "promptectomy_contracts_v2.py",
         OUTPUT_ROOT / "typescript" / "contracts-v2.ts",
-        OUTPUT_ROOT / "rust" / "src" / "lib.rs",
+        REPOSITORY_ROOT
+        / "rust"
+        / "crates"
+        / "promptectomy-contracts"
+        / "src"
+        / "generated.rs",
     )
     before = {path: path.read_bytes() for path in paths}
     generate()
@@ -107,6 +117,22 @@ def test_generated_bindings_are_reproducible_and_bound_to_schema() -> None:
     for path in paths:
         assert path.read_bytes() == before[path]
         assert digest in before[path]
+    rust_schema = (
+        REPOSITORY_ROOT
+        / "rust"
+        / "crates"
+        / "promptectomy-contracts"
+        / "schema"
+        / "contract.schema.json"
+    )
+    assert rust_schema.read_bytes() == SCHEMA_PATH.read_bytes()
+    rust_examples = rust_schema.parent / "examples"
+    source_examples = SCHEMA_PATH.parent / "examples"
+    assert {
+        path.name: path.read_bytes() for path in sorted(rust_examples.glob("*.json"))
+    } == {
+        path.name: path.read_bytes() for path in sorted(source_examples.glob("*.json"))
+    }
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,49 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/promptectomy-acquisition",
+    "crates/promptectomy-cli",
+    "crates/promptectomy-contracts",
+    "crates/promptectomy-core",
+    "crates/promptectomy-daemon",
+    "crates/promptectomy-fixtures",
+    "crates/promptectomy-protocol",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "LicenseRef-Proprietary-Pending-Approval"
+publish = false
+
+[workspace.dependencies]
+bytes = "=1.12.1"
+clap = { version = "=4.6.2", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
+http-body-util = "=0.1.4"
+hyper = { version = "=1.10.1", default-features = false, features = ["client", "http1", "server"] }
+hyper-util = { version = "=0.1.20", default-features = false, features = ["http1", "server", "service", "tokio"] }
+jsonschema = { version = "=0.48.1", default-features = false }
+rusqlite = { version = "=0.39.0", default-features = false, features = ["backup", "bundled"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_jcs = "=0.2.0"
+serde_json = "=1.0.150"
+sha2 = "=0.11.0"
+subtle = "=2.6.1"
+tempfile = "=3.27.0"
+thiserror = "=2.0.19"
+time = { version = "=0.3.53", features = ["formatting", "macros"] }
+tokio = { version = "=1.53.0", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+uuid = { version = "=1.24.0", features = ["serde", "v7"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = ENGINE_ROOT.parent
 SCHEMA_PATH = ENGINE_ROOT / "schemas" / "v2" / "contract.schema.json"
 OUTPUT_ROOT = ENGINE_ROOT / "generated" / "contracts_v2"
 ENTITIES = (
@@ -195,12 +197,25 @@ def generate() -> None:
 
     python_path = OUTPUT_ROOT / "python" / "promptectomy_contracts_v2.py"
     typescript_path = OUTPUT_ROOT / "typescript" / "contracts-v2.ts"
-    rust_path = OUTPUT_ROOT / "rust" / "src" / "lib.rs"
-    for path in (python_path, typescript_path, rust_path):
+    rust_path = (
+        REPOSITORY_ROOT
+        / "rust"
+        / "crates"
+        / "promptectomy-contracts"
+        / "src"
+        / "generated.rs"
+    )
+    rust_schema = rust_path.parent.parent / "schema" / "contract.schema.json"
+    rust_examples = rust_schema.parent / "examples"
+    for path in (python_path, typescript_path, rust_path, rust_schema):
         path.parent.mkdir(parents=True, exist_ok=True)
     python_path.write_text("\n".join(python_lines), encoding="utf-8")
     typescript_path.write_text("\n".join(typescript_lines), encoding="utf-8")
     rust_path.write_text("\n".join(rust_lines), encoding="utf-8")
+    rust_schema.write_bytes(raw)
+    if rust_examples.exists():
+        shutil.rmtree(rust_examples)
+    shutil.copytree(SCHEMA_PATH.parent / "examples", rust_examples)
 
 
 if __name__ == "__main__":

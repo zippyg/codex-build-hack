@@ -1,0 +1,82 @@
+{
+  "accepted_at": "2026-07-19T12:56:38.200112+00:00",
+  "boundaries": {
+    "adapter_process_protocol_bounded": true,
+    "loopback_tcp_default": false,
+    "private_os_transport": true,
+    "protected_source_digest_unchanged": true,
+    "rust_authoritative_local_state": true,
+    "source_status_unchanged": true,
+    "target_code_not_run_in_core_or_clients": true,
+    "typed_unsupported_without_fallback": true
+  },
+  "contracts": {
+    "generated_files": {
+      "engine/generated/contracts_v2/python/promptectomy_contracts_v2.py": "b0d1a5a591ad82cefa190b0cf3320c871480365827a17ac8263ee17b9dcba99f",
+      "engine/generated/contracts_v2/typescript/contracts-v2.ts": "f8906cfab6a7c56a0b5f7a3871109cb1487e7571e3700eb556ed93aa5eabc675",
+      "rust/crates/promptectomy-contracts/schema/contract.schema.json": "d3ff401e7d27ba7e19eeca6c7afdc2a430515e6a7541d5ccd290d866f096284c",
+      "rust/crates/promptectomy-contracts/schema/examples/event.valid.json": "c30a5b4ba8d08a50528b86f2f98c57463aa1f3d93018fb776f9befb9fd064e2d",
+      "rust/crates/promptectomy-contracts/schema/examples/run-extra-field.invalid.json": "d0f03039a260d88ed78c10d8a8b441c479596ccc1ac76eaf7a8c7c5a36bbb26c",
+      "rust/crates/promptectomy-contracts/schema/examples/run-future-version.invalid.json": "ebe251cdac2764655ff10bfb7170117b591149ac0444c40bb393a38839da89cb",
+      "rust/crates/promptectomy-contracts/schema/examples/run.valid.json": "0e49ca400472ba98b996ee4c0a487aac2e0d49b473f893ff1e549eb21e5c68ca",
+      "rust/crates/promptectomy-contracts/src/generated.rs": "7f7590e6b141a0f33fe788eed731aad0eb2c96221637d849117a59aba90b5cec"
+    },
+    "schema_sha256": "d3ff401e7d27ba7e19eeca6c7afdc2a430515e6a7541d5ccd290d866f096284c",
+    "schema_version": "2.0.0"
+  },
+  "elapsed_seconds": 52.437,
+  "executor_image": "sha256:23b8908a955aa2b7eb602845e08b50e1821d072ed67e510580d2392fbffec4f0",
+  "known_non_product_warning": "Starlette TestClient deprecation in the pinned Python dependency set",
+  "platform": {
+    "logical_cpu_count": 18,
+    "machine": "arm64",
+    "processor": "arm",
+    "release": "25.5.0",
+    "system": "Darwin"
+  },
+  "schema_version": "phase3-1",
+  "tests": {
+    "focused_python_v2": "30 passed, 1 warning in 0.55s",
+    "full_python_with_accepted_oci": "146 passed, 1 warning in 22.00s",
+    "full_python_without_oci": "132 passed, 14 skipped, 1 warning in 1.95s",
+    "phase3_benchmark": {
+      "candidate_thresholds_us": {
+        "local_read_p95": 100000,
+        "restart_and_read": 10000000,
+        "small_report_p95": 100000
+      },
+      "measurements_us": {
+        "local_read_p95": 4,
+        "restart_and_read": 429,
+        "small_report_p95": 18
+      },
+      "passed": true,
+      "schema_version": "phase3-benchmark-1",
+      "workload": {
+        "cache": "warm",
+        "events_per_run": 1,
+        "read_repetitions": 2000,
+        "report_repetitions": 200,
+        "runs": 1
+      }
+    },
+    "property_fuzz_smoke": "2,560 deterministic contract/path/protocol cases passed",
+    "real_python_v2_migration": {
+      "daemon_restarts": 2,
+      "imported_runs": 1,
+      "report_projection_present": true,
+      "run_projection_stable": true,
+      "source_unchanged": true
+    },
+    "release_cli": "doctor exit 0; inspect typed unsupported exit 3",
+    "rust_check": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.71s",
+    "rust_clippy": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.90s",
+    "rust_workspace": "65 passed across 18 test binaries",
+    "typescript": "strict noEmit passed"
+  },
+  "toolchain": {
+    "cargo": "cargo 1.92.0 (344c4567c 2025-10-21)",
+    "rustc": "rustc 1.92.0 (ded5c06cf 2025-12-08)",
+    "uv": "uv 0.11.26 (Homebrew 2026-06-30 aarch64-apple-darwin)"
+  }
+}

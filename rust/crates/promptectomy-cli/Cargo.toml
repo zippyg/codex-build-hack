@@ -1,0 +1,29 @@
+[package]
+name = "promptectomy-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clap.workspace = true
+promptectomy-contracts = { path = "../promptectomy-contracts" }
+promptectomy-core = { path = "../promptectomy-core" }
+promptectomy-daemon = { path = "../promptectomy-daemon" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+promptectomy-fixtures = { path = "../promptectomy-fixtures" }
+tempfile.workspace = true
+uuid.workspace = true
+
+[[bin]]
+name = "promptectomy"
+path = "src/main.rs"
+
+[lints]
+workspace = true

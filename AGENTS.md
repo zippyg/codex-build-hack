@@ -5,6 +5,7 @@ This file gives human contributors and repository-aware coding agents the same o
 ## Toolchains
 
 - Engine: Python 3.12, `uv`, Pydantic, Typer, and pytest.
+- Control plane: Rust 1.92, Cargo, SQLite, Tokio, and Hyper.
 - Dashboard: Next.js, TypeScript, `bun`, and Playwright.
 - Local isolation: an accepted OCI-compatible runtime. OrbStack is the primary macOS backend.
 
@@ -16,6 +17,11 @@ Use the repository lockfiles. Do not mix Python or JavaScript package managers.
 cd engine
 uv sync --frozen
 uv run pytest -q
+
+cd ../rust
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
 
 cd ../ui
 bun install --frozen-lockfile

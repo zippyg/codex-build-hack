@@ -1,0 +1,32 @@
+[package]
+name = "promptectomy-daemon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bytes.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+promptectomy-contracts = { path = "../promptectomy-contracts" }
+promptectomy-core = { path = "../promptectomy-core" }
+serde.workspace = true
+serde_json.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+promptectomy-fixtures = { path = "../promptectomy-fixtures" }
+tempfile.workspace = true
+
+[[bin]]
+name = "promptectomy-daemon"
+path = "src/main.rs"
+
+[lints]
+workspace = true

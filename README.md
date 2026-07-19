@@ -23,12 +23,13 @@ The current pre-v1 branch provides a deliberately narrow, safety-first foundatio
 - canonical Contract v2 schemas with mechanically generated Python, TypeScript, and Rust bindings;
 - owner-only SQLite state and a content-addressed artifact store with transactional events, crash reconciliation, tamper detection, and frozen reports;
 - a capability-protected local API contract with bounded bodies, strict Host and Origin checks, idempotency, and event cursors;
+- a Rust trusted core, private local daemon, and canonical state/report CLI with typed exits, restart-safe migration, and bounded out-of-process adapter supervision;
 - safe JSON and Markdown run reports;
 - a Next.js dashboard that replays the winning hackathon result.
 
 Inspect, Audit, and Draft do not execute target repository code. Drafts are data until a later isolated evaluation accepts them. The legacy hackathon mutation and hot-swap commands fail closed.
 
-The existing CLI still uses the safe Python reference path. The Rust daemon and CLI that expose Contract v2 as the primary product surface, plus general repository acquisition, evaluation, TUI, desktop GUI, and explicit branch-based Apply, are under active development. They are not claimed as finished here.
+The safe Python reference remains the current repository inspection and audit path. The Rust daemon and CLI now own the trusted local state and report boundary, including Python v2 import. Rust repository inspection still returns a typed unsupported result until the Phase 4 acquisition and language adapters are connected. Remote acquisition, evaluation, TUI, desktop GUI, and explicit branch-based Apply are not finished.
 
 ## Quickstart
 
@@ -108,6 +109,11 @@ docs/specs/              public contracts and compatibility notes
 cd engine
 uv sync --frozen
 uv run pytest -q
+
+cd ../rust
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
 
 cd ../ui
 bun install --frozen-lockfile
