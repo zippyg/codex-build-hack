@@ -1,7 +1,7 @@
 [project]
 name = "promptectomy"
 version = "0.1.0"
-description = "Local-first, non-mutating analysis and unverified patch drafts for supported LLM callsites."
+description = "Local-first analysis, unverified patch drafts, and bounded offline OCI execution for supported LLM callsites."
 requires-python = ">=3.12"
 dependencies = [
     "openai==2.46.0",
@@ -27,7 +27,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-artifacts = ["promptectomy/schema_assets/*.json"]
+artifacts = ["promptectomy/schema_assets/*.json", "promptectomy/executor_image/Dockerfile"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["promptectomy"]

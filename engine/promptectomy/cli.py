@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import typer
 
 from .connector import ResponsesConnector
+from .executor import BackendFailure, accept_backend, build_runner_image
 from .reference import ReferenceFailure, default_state_root, execute, load_latest_run, load_run, render_report
 from .reference_contracts import RunResult
 
@@ -162,7 +163,7 @@ def doctor(
     source: Annotated[Path | None, typer.Argument()] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Report Phase 1A readiness without exposing secret values."""
+    """Report local capability readiness without exposing secret values."""
     state = _state_root(json_output)
     schema = files("promptectomy.schema_assets").joinpath("draft-candidate-v1.json")
     try:
@@ -179,6 +180,14 @@ def doctor(
     else:
         parent = state.parent
         state_ready = parent.is_dir() and os.access(parent, os.W_OK)
+    image = os.environ.get("PROMPTECTOMY_OCI_IMAGE")
+    context = os.environ.get("PROMPTECTOMY_OCI_CONTEXT", "orbstack")
+    executor_report = None
+    if image is not None:
+        try:
+            _, executor_report = accept_backend(image, context=context)
+        except (BackendFailure, OSError, ValueError):
+            executor_report = None
     checks = {
         "source_local_directory": source_ready,
         "git_metadata_detected": source is not None and (source / ".git").exists(),
@@ -188,7 +197,9 @@ def doctor(
         "static_adapter_phase1a": True,
         "draft_schema_packaged": schema.is_file(),
         "responses_connector_configured": ResponsesConnector.from_environment() is not None,
-        "executor_available": False,
+        "executor_configured": image is not None,
+        "executor_available": executor_report is not None,
+        "executor_accepted": executor_report is not None and executor_report.accepted,
         "protected_key_store_enabled": False,
         "local_api_available": False,
     }
@@ -201,6 +212,7 @@ def doctor(
             "audit": checks["source_local_directory"] and checks["state_root_outside_source"],
             "draft_unverified": checks["responses_connector_configured"] and checks["draft_schema_packaged"] and checks["state_root_private_or_creatable"],
             "draft_verified": False,
+            "isolated_execution": checks["executor_accepted"],
         },
     }
     if json_output:
@@ -208,7 +220,7 @@ def doctor(
     else:
         for name, ready in checks.items():
             typer.echo(f"{'PASS' if ready else 'MISS'}  {name}")
-        typer.echo("Phase 1A supports unverified Draft only. No executor is configured by this phase.")
+        typer.echo("Verified Draft remains disabled until evaluation integration. Accepted OCI execution is reported separately.")
     if (
         not checks["source_local_directory"]
         or not checks["state_root_outside_source"]
@@ -217,6 +229,122 @@ def doctor(
         or not checks["draft_schema_packaged"]
     ):
         raise typer.Exit(code=2)
+
+
+@app.command("executor-doctor")
+def executor_doctor(
+    image: Annotated[str | None, typer.Option("--image")] = None,
+    context: Annotated[str, typer.Option("--context")] = "orbstack",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the hostile acceptance profile for one digest-pinned OCI image."""
+    selected = image or os.environ.get("PROMPTECTOMY_OCI_IMAGE")
+    if selected is None:
+        payload = {
+            "schema_version": "phase1b-1",
+            "status": "unsupported",
+            "error": {
+                "code": "executor_image_unavailable",
+                "category": "unsupported",
+                "retryable": True,
+                "safe_message": "No digest-pinned executor image was selected.",
+                "next_action": "Build the packaged runner image and pass its sha256 image ID.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo("error: executor_image_unavailable", err=True)
+        raise typer.Exit(code=3)
+    try:
+        _, report = accept_backend(selected, context=context)
+    except BackendFailure as exc:
+        code = exc.code
+        retryable = code != "unsupported_executor_context"
+        category = "policy" if code == "executor_image_not_approved" else "unsupported"
+        payload = {
+            "schema_version": "phase1b-1",
+            "status": "unsupported",
+            "error": {
+                "code": code,
+                "category": category,
+                "retryable": retryable,
+                "safe_message": "The selected OCI executor configuration is invalid or unavailable.",
+                "next_action": "Start the approved runtime and select a reviewed image digest.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo(f"error: {code}", err=True)
+        raise typer.Exit(code=4 if category == "policy" else 3)
+    except (OSError, ValueError):
+        payload = {
+            "schema_version": "phase1b-1",
+            "status": "unsupported",
+            "error": {
+                "code": "missing_isolation_backend",
+                "category": "unsupported",
+                "retryable": True,
+                "safe_message": "The selected OCI executor configuration is invalid or unavailable.",
+                "next_action": "Start the approved runtime and select a reviewed image digest.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo("error: missing_isolation_backend", err=True)
+        raise typer.Exit(code=3)
+    if json_output:
+        typer.echo(report.model_dump_json())
+    else:
+        typer.echo(f"accepted: {'yes' if report.accepted else 'no'}")
+        typer.echo(f"profile: {report.profile_digest}")
+        if report.backend is not None:
+            typer.echo(f"backend: {report.backend.operating_system} {report.backend.architecture}")
+        for name, passed in report.probes.items():
+            typer.echo(f"{'PASS' if passed else 'FAIL'}  {name}")
+        if report.error is not None:
+            typer.echo(f"error: {report.error.code}", err=True)
+    if not report.accepted:
+        raise typer.Exit(code=4)
+
+
+@app.command("executor-build")
+def executor_build(
+    context: Annotated[str, typer.Option("--context")] = "orbstack",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build the reviewed runner from its digest-pinned base image."""
+    try:
+        image = build_runner_image(context=context)
+    except (BackendFailure, OSError, ValueError):
+        payload = {
+            "schema_version": "phase1b-1",
+            "status": "failed",
+            "error": {
+                "code": "executor_image_build_failed",
+                "category": "executor",
+                "retryable": True,
+                "safe_message": "The reviewed executor image could not be built.",
+                "next_action": "Start the approved runtime and verify public base-image access.",
+            },
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        else:
+            typer.echo("error: executor_image_build_failed", err=True)
+        raise typer.Exit(code=9)
+    payload = {
+        "schema_version": "phase1b-1",
+        "status": "completed",
+        "image_digest": image,
+        "context": context,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    else:
+        typer.echo(f"image: {image}")
 
 
 @app.command("inspect")

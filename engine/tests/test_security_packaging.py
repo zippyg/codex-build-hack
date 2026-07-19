@@ -119,6 +119,10 @@ def test_bundled_schema_assets_are_importable() -> None:
         assert schema.is_file()
         assert json.loads(schema.read_text(encoding="utf-8"))["type"] == "object"
 
+    executor_assets = files("promptectomy.executor_image")
+    assert executor_assets.joinpath("Dockerfile").is_file()
+    assert executor_assets.joinpath("runner.py").is_file()
+
 
 def test_scan_rejects_credential_bearing_remote_url(tmp_path: Path) -> None:
     result = CliRunner().invoke(

@@ -17,7 +17,7 @@ Deliver PROMPTECTOMY stable v1 from the accepted Phase 0 design through verified
 - [x] Phase 0: accepted product, architecture, security, contract, UX, test, and governance decisions.
 - [x] Phase 0T: create and push the implementation branch, commit planning only, prove inherited baseline, establish this ledger.
 - [x] Phase 1A: honest non-mutating Python commands and unverified patch artifacts.
-- [ ] Phase 1B: accepted isolated executor.
+- [x] Phase 1B: accepted isolated executor.
 - [ ] Phase 1C: hostile clean-install acceptance.
 - [ ] Phase 2: Contract v2, durable state/artifacts, local API, and reports.
 - [ ] Phase 3: Rust control plane and canonical CLI.
@@ -45,6 +45,14 @@ Deliver PROMPTECTOMY stable v1 from the accepted Phase 0 design through verified
 - The hostile synthetic matrix, Git-state receipts, privacy canaries, connector/schema limits, legacy-path gates, and wheel packaging checks pass: 73 pytest tests, 0 failures, 0 skipped.
 - A fresh Python 3.12 wheel install passed help, doctor, inspect, status, report, and packaged-schema checks. The final artifact receipt is in `docs/architecture/phase-1a-evidence.md`.
 - Architecture, diff, and security findings were reproduced and closed. No Phase 1B executor work started.
+
+## Phase 1B receipt
+
+- The Python reference now has a closed executor protocol and a single accepted macOS arm64 OrbStack OCI support cell with no host or weaker-backend fallback.
+- The reviewed image content/configuration and stopped-container runner bytes are verified before execution. Offline containers are non-root, read-only, networkless, credential-free, capability-dropped, seccomp-confined, resource-bounded, cancellable, and cleaned up.
+- The hostile executor matrix passed 110 tests with the reviewed local image; no-image behavior passed 96 tests with 14 clean optional skips; five repeated acceptance profiles matched; 12 CPU-limit repetitions typed correctly; no owned containers remained.
+- Fresh architecture, diff, and security reviews closed with no P0/P1/P2. Zain explicitly approved the already-installed OrbStack runtime on 19 July 2026.
+- Exact evidence is in `docs/architecture/phase-1b-evidence.md`. Phase 1C hostile clean-install work did not start in this phase.
 
 ## Execution rule
 
