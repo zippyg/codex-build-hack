@@ -25,11 +25,6 @@ const MINIMUM_SQLITE: (u64, u64, u64) = (3, 51, 3);
 
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
-#[cfg(windows)]
-use std::os::windows::fs::OpenOptionsExt as _;
-
-#[cfg(windows)]
-const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x02000000;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -1894,7 +1889,7 @@ impl CoreStore {
         let digest = file_digest(&target)?;
         let renamed = backups.join(format!("state-{stamp}-{digest}.sqlite"));
         fs::rename(target, &renamed)?;
-        File::open(&renamed)?.sync_all()?;
+        OpenOptions::new().write(true).open(&renamed)?.sync_all()?;
         sync_parent(&renamed)?;
         Ok(renamed)
     }
@@ -2487,36 +2482,28 @@ fn open_validated_state(path: &Path, code: &str) -> Result<Connection, CoreError
     Ok(conn)
 }
 
+#[cfg(unix)]
 fn sync_parent(path: &Path) -> Result<(), CoreError> {
-    sync_directory(
+    File::open(
         path.parent()
             .ok_or_else(|| CoreError::safe("state_unavailable"))?,
-    )?;
+    )?
+    .sync_all()?;
     Ok(())
 }
 
-#[cfg(unix)]
-fn sync_directory(path: &Path) -> Result<(), CoreError> {
-    File::open(path)?.sync_all()?;
-    Ok(())
-}
-
-#[cfg(windows)]
-fn sync_directory(path: &Path) -> Result<(), CoreError> {
-    OpenOptions::new()
-        .read(true)
-        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
-        .open(path)?
-        .sync_all()?;
-    Ok(())
-}
-
-#[cfg(not(any(unix, windows)))]
-fn sync_directory(path: &Path) -> Result<(), CoreError> {
-    if path.exists() {
-        return Ok(());
+#[cfg(not(unix))]
+fn sync_parent(path: &Path) -> Result<(), CoreError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| CoreError::safe("state_unavailable"))?;
+    let metadata = fs::symlink_metadata(parent)?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(CoreError::safe("state_unavailable"));
     }
-    Err(CoreError::safe("state_unavailable"))
+    // Windows has no portable directory fsync. Callers flush each file before
+    // this metadata check, and SQLite runs with synchronous=FULL.
+    Ok(())
 }
 
 fn copy_private_synced(source: &Path, target: &Path, code: &str) -> Result<(), CoreError> {
@@ -2749,7 +2736,7 @@ fn backup_database(root: &Path, conn: &Connection, version: u32) -> Result<PathB
         .map_err(|_| CoreError::safe("migration_failed"))?;
     #[cfg(unix)]
     fs::set_permissions(&target, fs::Permissions::from_mode(0o600))?;
-    File::open(&target)?.sync_all()?;
+    OpenOptions::new().write(true).open(&target)?.sync_all()?;
     sync_parent(&target)?;
     Ok(target)
 }
