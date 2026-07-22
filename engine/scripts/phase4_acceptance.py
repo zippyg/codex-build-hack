@@ -765,6 +765,9 @@ def run_conformance() -> tuple[str, dict[str, CommandEvidence]]:
         ],
         cwd=RUST_ROOT,
         cwd_label="rust",
+        # macOS resolves the login Keychain from HOME. The test uses only a random,
+        # uniquely named key and deletes it before returning.
+        extra_environment={"HOME": str(_REAL_HOME)},
     )
     remote_runner = run_command(
         "remote-git-runner",
