@@ -2992,7 +2992,11 @@ mod tests {
         };
         manifest.manifest_digest = manifest.computed_digest();
         let config = OciRemoteConfig {
-            docker_program: PathBuf::from("/usr/bin/docker"),
+            docker_program: PathBuf::from(if cfg!(windows) {
+                r"C:\docker.exe"
+            } else {
+                "/usr/bin/docker"
+            }),
             image_reference: format!("promptectomy-remote@{image}"),
             user: CONTAINER_UID.to_owned(),
             pids_limit: 64,

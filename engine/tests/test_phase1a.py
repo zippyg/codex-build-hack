@@ -48,6 +48,7 @@ def _tree_digest(root: Path) -> str:
 def _init_dirty_git_repo(root: Path) -> None:
     _write_repo(root, typescript=False)
     subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "maintenance.auto", "false"], check=True)
     subprocess.run(["git", "-C", str(root), "config", "user.email", "fixture@example.invalid"], check=True)
     subprocess.run(["git", "-C", str(root), "config", "user.name", "Fixture"], check=True)
     subprocess.run(["git", "-C", str(root), "add", "app.py"], check=True)
