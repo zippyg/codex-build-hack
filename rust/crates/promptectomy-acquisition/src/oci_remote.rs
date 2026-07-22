@@ -216,6 +216,13 @@ pub(crate) struct OciRemoteConfig {
     pub relay_upstream: Option<RelayUpstream>,
 }
 
+#[cfg_attr(
+    not(unix),
+    allow(
+        dead_code,
+        reason = "the reviewed relay backend is unavailable on this platform"
+    )
+)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum RelayUpstream {
     OrbstackHost,
@@ -468,6 +475,7 @@ pub(crate) fn acquire_public_https(
     clippy::too_many_arguments,
     reason = "the trust boundary keeps every validated SSH binding explicit"
 )]
+#[cfg(unix)]
 pub(crate) fn acquire_brokered_ssh(
     runner: &dyn CommandRunner,
     config: &OciRemoteConfig,
@@ -580,6 +588,7 @@ fn acquire_remote(
     }
 }
 
+#[cfg(unix)]
 fn validate_ssh_request(
     manifest: &RemoteGitManifest,
     repository: &str,
@@ -2260,6 +2269,7 @@ mod tests {
     const WORKER_BINARY_BYTES: &[u8] = b"worker-binary";
     const PROXY_BINARY_BYTES: &[u8] = b"proxy-binary";
     const RELAY_BINARY_BYTES: &[u8] = b"relay-binary";
+    #[cfg(unix)]
     const SYNTHETIC_HOST_KEY_BASE64: &str = concat!(
         "AAAAC3NzaC1l",
         "ZDI1NTE5AAAA",

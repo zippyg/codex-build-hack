@@ -11,6 +11,7 @@ use std::fs::{File, Metadata};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(unix)]
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -29,11 +30,14 @@ pub use remote::{
     build_remote_git_manifest,
 };
 use remote::{RemoteGitResult, remote_source_bundle_digest, ssh_broker_executable_digest};
+#[cfg(unix)]
 use remote::{SshBrokerDecision, load_ssh_broker_request, parse_ssh_broker_response};
 pub use snapshot::{AcquiredSnapshot, SnapshotReceipt};
 
 pub const ACQUISITION_PROTOCOL_VERSION: &str = "phase4-acquisition-1";
+#[cfg(unix)]
 const MAX_SSH_BROKER_RESPONSE_BYTES: usize = 16 * 1024;
+#[cfg(unix)]
 const MAX_SSH_BROKER_SECONDS: u64 = 10;
 const ORBSTACK_HOST_AGENT_SOCKET: &str = "/run/host-services/ssh-auth.sock";
 
@@ -527,6 +531,7 @@ impl Acquirer {
         Ok(material)
     }
 
+    #[cfg(unix)]
     fn preflight_ssh_broker(
         acquisition: &AcquisitionRequest,
         broker: &ReviewedSshBroker,
@@ -624,6 +629,7 @@ impl Acquirer {
     }
 }
 
+#[cfg(unix)]
 #[derive(Clone, Eq, PartialEq)]
 struct SshBrokerCommandPlan {
     program: PathBuf,
@@ -632,6 +638,7 @@ struct SshBrokerCommandPlan {
     max_output_bytes: usize,
 }
 
+#[cfg(unix)]
 impl fmt::Debug for SshBrokerCommandPlan {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -643,12 +650,14 @@ impl fmt::Debug for SshBrokerCommandPlan {
     }
 }
 
+#[cfg(unix)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct SshBrokerCommandOutput {
     success: bool,
     stdout: Vec<u8>,
 }
 
+#[cfg(unix)]
 trait SshBrokerRunner: Send + Sync {
     fn run(
         &self,
@@ -657,8 +666,10 @@ trait SshBrokerRunner: Send + Sync {
     ) -> Result<SshBrokerCommandOutput, AcquisitionError>;
 }
 
+#[cfg(unix)]
 struct SystemSshBrokerRunner;
 
+#[cfg(unix)]
 impl SshBrokerRunner for SystemSshBrokerRunner {
     fn run(
         &self,

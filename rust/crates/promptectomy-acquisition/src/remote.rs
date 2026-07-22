@@ -155,6 +155,7 @@ impl SshBrokerGrantRequest {
         Ok(())
     }
 
+    #[cfg(unix)]
     pub(crate) fn relay_grant(
         &self,
         manifest: &RemoteGitManifest,
@@ -191,6 +192,7 @@ impl SshBrokerGrantRequest {
     }
 }
 
+#[cfg(unix)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SshBrokerDecision {
@@ -199,6 +201,7 @@ pub(crate) enum SshBrokerDecision {
     Unavailable,
 }
 
+#[cfg(unix)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SshBrokerGrantResponse {
@@ -210,6 +213,7 @@ pub(crate) struct SshBrokerGrantResponse {
     pub confirmed_host_key_sha256: Option<String>,
 }
 
+#[cfg(unix)]
 impl SshBrokerGrantResponse {
     pub(crate) fn validate_for(
         &self,
@@ -633,6 +637,7 @@ pub(crate) fn load_ssh_broker_request(
     Ok((bytes, request))
 }
 
+#[cfg(unix)]
 pub(crate) fn parse_ssh_broker_response(
     bytes: &[u8],
     binding: &BrokerBinding,

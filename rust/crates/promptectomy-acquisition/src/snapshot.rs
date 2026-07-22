@@ -93,7 +93,7 @@ pub struct AcquiredSnapshot {
 }
 
 impl AcquiredSnapshot {
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn trusted_snapshot_root(&self) -> &Path {
         &self.snapshot_root
     }

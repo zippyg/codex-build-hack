@@ -36,9 +36,10 @@ use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 #[cfg(unix)]
 use promptectomy_acquisition::{
-    Acquirer, AcquisitionError, AcquisitionLimits, AcquisitionRequest, AcquisitionSource,
-    ArchiveFormat, LocalDirtyPolicy, OrbstackPublicGitBackend,
+    Acquirer, AcquisitionError, AcquisitionRequest, AcquisitionSource, ArchiveFormat,
+    LocalDirtyPolicy,
 };
+use promptectomy_acquisition::{AcquisitionLimits, OrbstackPublicGitBackend};
 #[cfg(unix)]
 use promptectomy_contracts::{SCHEMA_SHA256, canonical_json};
 use promptectomy_contracts::{SCHEMA_VERSION, artifact_id};
