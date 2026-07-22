@@ -1,35 +1,45 @@
 {
-  "receipt_id": "receipt_sha256_1616d1560b190c772d0bef8d30fbed2d47424361b368e681295743696c5b4c7d",
+  "receipt_id": "receipt_sha256_51cb47cacbc29257ba32c999787edcfc801cf3046d6b92ee88794fcec2d7fa35",
   "records": [
     {
-      "result_digest": "sha256:b0a37032165e9fb9b1510d70f9d3ac6dfdbb4b0b08121502f790910d6ef4d34f",
+      "result_digest": "sha256:b97dac77689ed4f4a57d7027425e4bd3691308d91febcf9007132a6615cb4bf4",
       "status": "passed",
       "suite_id": "ARCH"
     },
     {
-      "result_digest": "sha256:e9c0c17d816ce303214dbc9da528881a66dee98df0ad33112940ff97019da3e6",
-      "status": "unsupported",
+      "result_digest": "sha256:dee9671086e0b51da61e0297a6b983c79edb0b405cd555e8283756a8aa4cb244",
+      "status": "passed",
       "suite_id": "BACKUP-DELETE"
     },
     {
-      "result_digest": "sha256:7f029254d4947094e71a22866754f44cb065be6ee2ec27b507d67b1af02aaee4",
+      "result_digest": "sha256:ff774f09a9ed673d314fc8f8ee0664dfa196cec5941d03d1589936c4e7e613c3",
+      "status": "passed",
+      "suite_id": "BOUND-SOURCE-CLEAN"
+    },
+    {
+      "result_digest": "sha256:b972bbd95e0b2c90ce74f0c78c02aca86c2310327840a7395f8155f78832e4c7",
       "status": "passed",
       "suite_id": "BUNDLE"
     },
     {
-      "result_digest": "sha256:1c2074206530f6b09f93ab929eba7d7e7ec2b005e3db0a3faba64a499fdb52d6",
+      "result_digest": "sha256:1bd23b8179d806a65e06701e1f9eea76ec24cb4ef037203959655baee2ae7498",
       "status": "passed",
       "suite_id": "CAP-NODE"
     },
     {
-      "result_digest": "sha256:11c46f9eb8e3d890575c21becacc1efa3a4463d2a033fe19234165422c103ce0",
+      "result_digest": "sha256:dc71c2aabe577673ce94e9041c20ae198922244a61e2e29fe93899dc0ee2a5c7",
       "status": "passed",
       "suite_id": "CAP-NORMALIZE"
     },
     {
-      "result_digest": "sha256:6bb3e2a6258cfd436a1cc98823e0e2fb6ab1440320ba197cf647977374337afd",
+      "result_digest": "sha256:76a9040e7e0da211337207b25d2b724af6c8bc88adc4cc96b14da9803f5fa4b7",
       "status": "passed",
       "suite_id": "CAP-PY"
+    },
+    {
+      "result_digest": "sha256:6ddbaa5bd28ac566cdfc78b237b60b159ac3856093148866400361b89f531aca",
+      "status": "passed",
+      "suite_id": "DAEMON-INSPECT"
     },
     {
       "result_digest": "sha256:88909ddcc7c3133129d56bd118e58e6306b35b0fe94c82812e0273ad153fe51a",
@@ -52,72 +62,87 @@
       "suite_id": "DISC-TS"
     },
     {
-      "result_digest": "sha256:3ef25f4513f8c83469e8587a4b286f1428cc47b4ab63e935d248193796c84bf3",
+      "result_digest": "sha256:09a1b7bb32d16267610aea6419cfb441b67aad9a3de7421124694f0755b29244",
       "status": "passed",
       "suite_id": "EGRESS"
     },
     {
-      "result_digest": "sha256:a817cd26caf38b0ec9eaca9d42ab31532a3862bb1cf0813c4ee55e84b8c8f777",
-      "status": "unsupported",
+      "result_digest": "sha256:cbf2d3c88b013d2cc359a5f5a2df7248be265db5d2bec5d905593744dee111e7",
+      "status": "passed",
       "suite_id": "GIT-HTTPS"
     },
     {
-      "result_digest": "sha256:af9411775ba73b29ae120a01fd360f769ad50e4693374a124a76f3c43f85ed94",
+      "result_digest": "sha256:5f6a717bfc335ea0593a68610370b8ceebd9172b16e987f0ecfafc41a220bf75",
       "status": "passed",
       "suite_id": "GIT-LOCAL"
     },
     {
-      "result_digest": "sha256:86e4c21a19b4a6493e57e2a8cdc51b196d1df466637d930512bb3581275f0456",
-      "status": "unsupported",
+      "result_digest": "sha256:ea8ea3c474db34a26d41a4ec076ae7b6e6bdcdaef0a5931c1373b7c98c2c3c1e",
+      "status": "passed",
       "suite_id": "GIT-SSH-BROKER"
     },
     {
-      "result_digest": "sha256:90515ccb59bf9edaecdf3420002af85d5ad4325b1f3d3e96762461162fb9f0e9",
-      "status": "unsupported",
+      "result_digest": "sha256:8773c55ce3d0e6d5d8c064fed9bb57f29c904781a74b84e227e2fa083023e16d",
+      "status": "passed",
+      "suite_id": "KEYSTORE-MACOS-NATIVE"
+    },
+    {
+      "result_digest": "sha256:14219e656a461760f089957e7b0daa37ecae852404ea81ec78de1f0e7ec401a0",
+      "status": "passed",
       "suite_id": "KEYSTORE-PERSISTENT"
     },
     {
-      "result_digest": "sha256:a77085cbbdd9959e61dd1e648e32d6d9a7fa2eacf98f1fcbd92dbcf49041fa47",
+      "result_digest": "sha256:e891b045b57eb189953448d458ed3031705b3947ce343957f83160dd68bf03b9",
       "status": "passed",
       "suite_id": "NONMUTATION"
     },
     {
-      "result_digest": "sha256:a4fb110f17f558c681df363b2499e9ee66d595fd3027e65e965aa20f922a0c98",
+      "result_digest": "sha256:4c8f7989ce1649309e4d2666af09c741487ba3a619c420e99b215ae63fb03748",
       "status": "passed",
       "suite_id": "OTLP-GRPC"
     },
     {
-      "result_digest": "sha256:b7cddd2521a22bdd4b991164f6c7f0add95312303963b0c17d950120b7473079",
+      "result_digest": "sha256:cadd308035fdd8e08f64fdb323f3ba0917e2751329b24edd317bb7e4fe73007f",
       "status": "passed",
       "suite_id": "OTLP-HTTP"
     },
     {
-      "result_digest": "sha256:dd440bb3b5a78ddce318899e8ad0e027d16b280d155289324bcc09ae712b8d3b",
+      "result_digest": "sha256:bed8dcf7a1630c09e33623119912d619b3db44d0b578b8684c314bc779314657",
       "status": "passed",
       "suite_id": "OTLP-MAPPING"
     },
     {
-      "result_digest": "sha256:eb73eb02bd3afddb97c91ff3c8b2cf4327b1a5f73097f722bf8e82c55f3f6cc3",
+      "result_digest": "sha256:538f74ef5f39558c73920f20dcc7077c170375f357c2fa75840f10b37cc007e3",
       "status": "passed",
       "suite_id": "PATH"
     },
     {
-      "result_digest": "sha256:0375aeb7a16a2ba158042b47af710888e2da90964ce89dd7c85f8d08faf803fa",
+      "result_digest": "sha256:e50dd9d28966c5b3a5e0ba9f116880ec6546d2ce22e14e74aed7e2af20d45f75",
       "status": "passed",
       "suite_id": "PRIV-CANARY"
     },
     {
-      "result_digest": "sha256:ff6383f6d87c722142dffe851b03c7034814f518ff9e153dd7d911f33b005517",
-      "status": "unsupported",
+      "result_digest": "sha256:9af5250e472c89ce96f7742348355b1b1551e2435aca5b99dd414748d342f8fc",
+      "status": "passed",
       "suite_id": "PRIV-DEL"
     },
     {
-      "result_digest": "sha256:adfea41a9733991e4e93cc800dd6c5bbef4865736984b3f4c4a14191c46f6e3c",
+      "result_digest": "sha256:69080d4c213f265ccf677a67c578634bfe4e0043cb1e33e48d9910bbaad88bb9",
       "status": "passed",
       "suite_id": "PROTECTED-DIGEST"
     },
     {
-      "result_digest": "sha256:3e4cfb177e662e695ba464e9ac05c02e866a7dd0178a7932d84f982d4888dfff",
+      "result_digest": "sha256:15ab110cde61647c007269259c992614ee16fc8da97bd2fd4233d3f194b55a3b",
+      "status": "passed",
+      "suite_id": "REMOTE-ARTIFACT-PINS"
+    },
+    {
+      "result_digest": "sha256:808691b25d05537e992443ac008d3d3dcee267344b8b255ddb87fbebcb0120f6",
+      "status": "passed",
+      "suite_id": "REMOTE-IMAGE-PACKAGES"
+    },
+    {
+      "result_digest": "sha256:dad0d2ac48100a98e815a2ac20f00e2ebfcf74703808afc086883898cafa8644",
       "status": "passed",
       "suite_id": "SOURCE-STATUS"
     },
@@ -127,11 +152,11 @@
       "suite_id": "TREE-SITTER-PINNED"
     },
     {
-      "result_digest": "sha256:87e4f92a068065331c31d4406ac875ec91f02ab91ecccbeec66c1195b4b5e359",
+      "result_digest": "sha256:019b9d98dee4cb204dde5a78f6aa7afad63bd98f2e425bbc0d1fb04a60e76164",
       "status": "passed",
       "suite_id": "WHEEL-CLEAN"
     }
   ],
   "schema_version": "promptectomy.phase4-evidence.v1",
-  "source_head": "695e37960a4177308d296fcc88ed3c73d2021be1"
+  "source_head": "30257a91b3ec393bf0cac802fa8a6c126bf7eaf1"
 }

@@ -10,9 +10,15 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "immutable_snapshot",
+      "platforms": [
+        "macos"
+      ],
       "provider": "local",
+      "runtime_versions": [
+        "promptectomy-acquisition-v2"
+      ],
       "state": "stable"
     },
     {
@@ -25,9 +31,16 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "validated_snapshot",
+      "platforms": [
+        "macos"
+      ],
       "provider": "ustar",
+      "runtime_versions": [
+        "promptectomy-acquisition-v2",
+        "ustar"
+      ],
       "state": "stable"
     },
     {
@@ -40,9 +53,16 @@
       ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": "macOS and Linux only; Windows private storage is typed unsupported.",
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "validated_snapshot",
+      "platforms": [
+        "macos"
+      ],
       "provider": "source_bundle",
+      "runtime_versions": [
+        "promptectomy-acquisition-v2",
+        "source-bundle-v1"
+      ],
       "state": "stable"
     },
     {
@@ -55,9 +75,16 @@
       ],
       "language": "python",
       "level": "L1",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "responses.create_parse_declared_surface",
+      "platforms": [
+        "macos"
+      ],
       "provider": "openai",
+      "runtime_versions": [
+        "python=3.12",
+        "openai=2.46.0"
+      ],
       "state": "stable"
     },
     {
@@ -71,9 +98,17 @@
       ],
       "language": "typescript_javascript",
       "level": "L1",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "responses.create_parse_declared_surface",
+      "platforms": [
+        "macos"
+      ],
       "provider": "openai",
+      "runtime_versions": [
+        "typescript=7.0.2",
+        "tree-sitter=0.26.0",
+        "tree-sitter-typescript=0.23.2"
+      ],
       "state": "stable"
     },
     {
@@ -85,9 +120,15 @@
       ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "bounded_content_free_record",
+      "platforms": [
+        "macos"
+      ],
       "provider": "openai",
+      "runtime_versions": [
+        "otlp-openinference-2026-07-1"
+      ],
       "state": "stable"
     },
     {
@@ -99,9 +140,16 @@
       ],
       "language": "python",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "responses_runtime_adapter",
+      "platforms": [
+        "macos"
+      ],
       "provider": "openai",
+      "runtime_versions": [
+        "python=3.12",
+        "openai=2.46.0"
+      ],
       "state": "stable"
     },
     {
@@ -113,9 +161,18 @@
       ],
       "language": "node",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "responses_runtime_adapter",
+      "platforms": [
+        "macos"
+      ],
       "provider": "openai",
+      "runtime_versions": [
+        "node=24.18.0",
+        "bun=1.3.10",
+        "openai=6.48.0",
+        "typescript=7.0.2"
+      ],
       "state": "stable"
     },
     {
@@ -128,9 +185,16 @@
       ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "offline_trace_export_import",
+      "platforms": [
+        "macos"
+      ],
       "provider": "otlp_http_json",
+      "runtime_versions": [
+        "opentelemetry-proto=1.44.0",
+        "http-json"
+      ],
       "state": "stable"
     },
     {
@@ -143,9 +207,16 @@
       ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "offline_trace_export_import",
+      "platforms": [
+        "macos"
+      ],
       "provider": "otlp_grpc_protobuf",
+      "runtime_versions": [
+        "opentelemetry-proto=1.44.0",
+        "grpc-protobuf"
+      ],
       "state": "stable"
     },
     {
@@ -157,54 +228,106 @@
       ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": null,
+      "limitation": "Only macOS is bound by the current receipt; Linux and Windows remain unverified.",
       "operation": "authority_complete_manifest_preview",
+      "platforms": [
+        "macos"
+      ],
       "provider": "approved_destination",
+      "runtime_versions": [
+        "egress-authority-v1"
+      ],
       "state": "stable"
     },
     {
       "capability": "retention_deletion",
       "cell_id": "local_deletion",
-      "evidence": [],
+      "evidence": [
+        "PRIV-DEL",
+        "BACKUP-DELETE",
+        "KEYSTORE-MACOS-NATIVE"
+      ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": "Flat synthetic artifacts are covered, but transactional protected storage, backup references, key destruction, and crash recovery are not complete.",
-      "operation": "reference_aware_deletion_receipt",
+      "limitation": "Linux and Windows key-store deletion remain unverified.",
+      "operation": "reference_aware_transactional_deletion_receipt",
+      "platforms": [
+        "macos"
+      ],
       "provider": "local_tool_storage",
-      "state": "experimental"
+      "runtime_versions": [
+        "protected-store-v1",
+        "macos-keychain"
+      ],
+      "state": "stable"
     },
     {
       "capability": "repository_acquisition",
       "cell_id": "acquisition_https",
-      "evidence": [],
+      "evidence": [
+        "GIT-HTTPS",
+        "REMOTE-ARTIFACT-PINS",
+        "REMOTE-IMAGE-PACKAGES"
+      ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": "The Git process is neutralized, but clone disk usage is not yet kernel-bounded.",
+      "limitation": "A clean local receipt covers the reviewed macOS arm64 OrbStack backend, but CI cannot re-execute that live backend yet.",
       "operation": "no_checkout_snapshot",
+      "platforms": [
+        "macos-arm64-orbstack"
+      ],
       "provider": "git_https",
-      "state": "unsupported"
+      "runtime_versions": [
+        "git-https",
+        "remote-git-runner-v1",
+        "egress-proxy-v2"
+      ],
+      "state": "experimental"
     },
     {
       "capability": "repository_acquisition",
       "cell_id": "acquisition_ssh_broker",
-      "evidence": [],
+      "evidence": [
+        "GIT-SSH-BROKER",
+        "REMOTE-ARTIFACT-PINS",
+        "REMOTE-IMAGE-PACKAGES"
+      ],
       "language": "language_neutral",
       "level": "L0",
-      "limitation": "Broker attestation and controlled private-repository acceptance are not complete.",
-      "operation": "no_checkout_snapshot",
+      "limitation": "A controlled Linux ssh-agent and pinned sshd fixture covers the filtered relay on macOS arm64 OrbStack. A real private-host account is not bound by this receipt.",
+      "operation": "selected_agent_key_no_checkout_snapshot",
+      "platforms": [
+        "macos-arm64-orbstack"
+      ],
       "provider": "git_ssh_broker",
-      "state": "unsupported"
+      "runtime_versions": [
+        "git-ssh",
+        "remote-git-runner-v2",
+        "ssh-agent-relay-v1",
+        "egress-proxy-v2"
+      ],
+      "state": "experimental"
     },
     {
       "capability": "protected_storage",
       "cell_id": "persistent_protected_storage",
-      "evidence": [],
+      "evidence": [
+        "KEYSTORE-PERSISTENT",
+        "KEYSTORE-MACOS-NATIVE"
+      ],
       "language": "language_neutral",
       "level": "L2",
-      "limitation": "The envelope primitive exists, but no supported OS key-store adapter is integrated.",
-      "operation": "authenticated_envelope",
-      "provider": "os_key_store",
-      "state": "unsupported"
+      "limitation": "Linux and Windows native key stores remain unverified.",
+      "operation": "authenticated_envelope_wrapping_key_round_trip",
+      "platforms": [
+        "macos"
+      ],
+      "provider": "macos_keychain",
+      "runtime_versions": [
+        "protected-envelope-v1",
+        "macos-keychain"
+      ],
+      "state": "stable"
     },
     {
       "capability": "static_discovery",
@@ -214,7 +337,9 @@
       "level": "L0",
       "limitation": "Other languages receive inventory only until a public adapter conformance suite passes.",
       "operation": "responses",
+      "platforms": [],
       "provider": "openai",
+      "runtime_versions": [],
       "state": "unsupported"
     },
     {
@@ -225,7 +350,9 @@
       "level": "L0",
       "limitation": "Stable v1 supports OpenAI Responses only.",
       "operation": "provider_operations",
+      "platforms": [],
       "provider": "other",
+      "runtime_versions": [],
       "state": "unsupported"
     },
     {
@@ -236,7 +363,9 @@
       "level": "L3",
       "limitation": "Phase 5 owns the hidden-holdout and independent evaluation gates.",
       "operation": "candidate_behavior",
+      "platforms": [],
       "provider": "openai",
+      "runtime_versions": [],
       "state": "experimental"
     },
     {
@@ -247,7 +376,9 @@
       "level": "L4",
       "limitation": "Phase 5 owns stable L4 evaluation and receipt gates.",
       "operation": "reviewable_patch_tests_receipt",
+      "platforms": [],
       "provider": "openai",
+      "runtime_versions": [],
       "state": "experimental"
     },
     {
@@ -258,11 +389,13 @@
       "level": "L5",
       "limitation": "L5 is not part of the initial stable local release.",
       "operation": "apply_or_merge",
+      "platforms": [],
       "provider": "all",
+      "runtime_versions": [],
       "state": "unsupported"
     }
   ],
   "phase": 4,
-  "receipt_id": "receipt_sha256_1616d1560b190c772d0bef8d30fbed2d47424361b368e681295743696c5b4c7d",
+  "receipt_id": "receipt_sha256_51cb47cacbc29257ba32c999787edcfc801cf3046d6b92ee88794fcec2d7fa35",
   "schema_version": "promptectomy.support-matrix.v1"
 }
