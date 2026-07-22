@@ -1079,9 +1079,7 @@ def main() -> int:
         print('{"phase":4,"status":"verified"}')
         return 0
     global _COMMAND_ENV_ROOT
-    with tempfile.TemporaryDirectory(
-        prefix="promptectomy-phase4-environment-"
-    ) as environment_name:
+    with tempfile.TemporaryDirectory(prefix="p4-") as environment_name:
         _COMMAND_ENV_ROOT = Path(environment_name)
         for name in ("bun-cache", "cargo", "config", "docker", "home", "tmp"):
             (_COMMAND_ENV_ROOT / name).mkdir(mode=0o700)
