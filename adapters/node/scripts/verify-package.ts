@@ -47,7 +47,7 @@ if (tarballDigest !== secondTarballDigest) {
 
 const members = run("tar", ["-tzf", tarball], packageRoot)
   .trim()
-  .split("\n")
+  .split(/\r?\n/)
   .sort();
 const expectedMembers = ["package/dist/index.d.ts", "package/dist/index.js", "package/package.json"];
 if (JSON.stringify(members) !== JSON.stringify(expectedMembers)) {
