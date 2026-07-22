@@ -1,5 +1,5 @@
 {
-  "receipt_id": "receipt_sha256_ba786eaa56d0d8eed67a9d304e8057f3e1cb34e020d3698ccf977012af5b32d7",
+  "receipt_id": "receipt_sha256_be456e6720b8c0c66e28ca99c5aa77f693528c6ab7b7632d05775fccf57700d1",
   "records": [
     {
       "result_digest": "sha256:b97dac77689ed4f4a57d7027425e4bd3691308d91febcf9007132a6615cb4bf4",
@@ -152,11 +152,11 @@
       "suite_id": "TREE-SITTER-PINNED"
     },
     {
-      "result_digest": "sha256:0ccc677622490d7c2589baffc73061091a194bb180591077af0ce09882f9d57f",
+      "result_digest": "sha256:0c10f10c5d31f15023b45938c8a3339fa08678bedb67b3d40466538e98afe1e8",
       "status": "passed",
       "suite_id": "WHEEL-CLEAN"
     }
   ],
   "schema_version": "promptectomy.phase4-evidence.v1",
-  "source_head": "610a27a9dcac3b1195388ef2938acf1704096ad4"
+  "source_head": "e613ec354c5295d5faeba30e7f681778bd5d1242"
 }
