@@ -396,6 +396,6 @@
     }
   ],
   "phase": 4,
-  "receipt_id": "receipt_sha256_78efc015da55bc6d1e3819431720cdd0b754db7318055c4ecc31ccfb948e3d51",
+  "receipt_id": "receipt_sha256_ba786eaa56d0d8eed67a9d304e8057f3e1cb34e020d3698ccf977012af5b32d7",
   "schema_version": "promptectomy.support-matrix.v1"
 }
