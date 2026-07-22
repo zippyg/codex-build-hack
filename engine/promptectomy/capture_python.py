@@ -261,9 +261,11 @@ class _Attempt:
             callsites=self.callsites,
         )
         try:
-            self.sink(observation)
+            result = self.sink(observation)
         except BaseException as exc:
             raise CaptureCallbackError("The capture observation callback failed") from exc
+        if result is not None:
+            raise CaptureCallbackError("The capture observation callback must return None")
 
     def finish_preserving(self, error: BaseException) -> None:
         try:

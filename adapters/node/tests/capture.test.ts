@@ -247,6 +247,20 @@ describe("metadata-only Responses capture", () => {
     });
     await expect(asyncSink.create({ model: "gpt" })).rejects.toBeInstanceOf(CaptureCallbackError);
 
+    let thenReads = 0;
+    const accessorSink = captureResponses(callables(async () => response()), {
+      callsiteId: CALLSITE_ID,
+      registry: registry(),
+      sink: (() => ({
+        get then() {
+          thenReads += 1;
+          return Promise.resolve.bind(Promise);
+        },
+      })) as unknown as (observation: CaptureObservation) => void,
+    });
+    await expect(accessorSink.create({ model: "gpt" })).rejects.toBeInstanceOf(CaptureCallbackError);
+    expect(thenReads).toBe(0);
+
     const slowSink = captureResponses(callables(async () => response()), {
       callsiteId: CALLSITE_ID,
       registry: registry(),
@@ -257,6 +271,24 @@ describe("metadata-only Responses capture", () => {
       },
     });
     await expect(slowSink.create({ model: "gpt" })).rejects.toBeInstanceOf(CaptureCallbackError);
+  });
+
+  test("stream validation does not invoke an accessor-backed iterator", async () => {
+    let iteratorReads = 0;
+    const hostile = Object.defineProperty({}, Symbol.asyncIterator, {
+      get() {
+        iteratorReads += 1;
+        return () => ({ next: async () => ({ done: true, value: undefined }) });
+      },
+    });
+    const captured = captureResponses(callables(async () => hostile), {
+      callsiteId: CALLSITE_ID,
+      registry: registry(),
+      sink: () => {},
+    });
+
+    await expect(captured.create({ model: "gpt", stream: true })).rejects.toBeInstanceOf(TypeError);
+    expect(iteratorReads).toBe(0);
   });
 
   test("oversized and getter-backed values fail without reading protected properties", async () => {

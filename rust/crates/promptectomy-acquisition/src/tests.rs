@@ -4,9 +4,16 @@ use std::path::Path;
 #[cfg(unix)]
 use std::path::PathBuf;
 #[cfg(unix)]
-use std::sync::Mutex;
+use std::sync::{Mutex, atomic::AtomicBool};
 
 use tempfile::TempDir;
+
+#[cfg(unix)]
+use base64::Engine as _;
+#[cfg(unix)]
+use base64::engine::general_purpose::STANDARD_NO_PAD;
+#[cfg(unix)]
+use sha2::{Digest as _, Sha256};
 
 use super::*;
 #[cfg(unix)]
@@ -44,15 +51,41 @@ fn local_source(path: &Path) -> AcquisitionSource {
 }
 
 fn remote_backend_policy() -> RemoteBackendPolicy {
-    RemoteBackendPolicy {
-        profile: RemoteBackendProfile::OrbstackMacosArm64V1,
-        image_digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
-            .to_owned(),
-        runner_digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222"
-            .to_owned(),
-        egress_proxy_digest:
-            "sha256:3333333333333333333333333333333333333333333333333333333333333333".to_owned(),
-    }
+    RemoteBackendPolicy::reviewed_orbstack_macos_arm64_v1()
+}
+
+#[cfg(unix)]
+fn ssh_broker_request_bytes(host: &str, handle: &str, repository: &str) -> Vec<u8> {
+    let host_key = [
+        0, 0, 0, 11, b's', b's', b'h', b'-', b'e', b'd', b'2', b'5', b'5', b'1', b'9', 0, 0, 0, 4,
+        b'h', b'o', b's', b't',
+    ];
+    let selected_key = [
+        0, 0, 0, 11, b's', b's', b'h', b'-', b'e', b'd', b'2', b'5', b'5', b'1', b'9', 0, 0, 0, 3,
+        b'k', b'e', b'y',
+    ];
+    serde_jcs::to_vec(&SshBrokerGrantRequest {
+        schema_version: SSH_BROKER_REQUEST_VERSION.to_owned(),
+        opaque_handle: handle.to_owned(),
+        display_host: host.to_owned(),
+        port: 22,
+        username: "git".to_owned(),
+        repository: repository.to_owned(),
+        revision: "main".to_owned(),
+        host_key_type: "ssh-ed25519".to_owned(),
+        host_key_base64: STANDARD_NO_PAD.encode(host_key),
+        host_key_sha256: format!(
+            "SHA256:{}",
+            STANDARD_NO_PAD.encode(Sha256::digest(host_key))
+        ),
+        selected_public_key_base64: STANDARD_NO_PAD.encode(selected_key),
+        credential_source: "selected_ssh_agent".to_owned(),
+        wall_time_seconds: 5,
+        max_connections: 1,
+        max_frame_bytes: 256 * 1024,
+        max_signatures: 4,
+    })
+    .expect("canonical broker request")
 }
 
 fn test_domain_digest(domain: &str, value: &[u8]) -> String {
@@ -78,11 +111,22 @@ fn accepted_remote_attestation(
             "sha256:4444444444444444444444444444444444444444444444444444444444444444".to_owned(),
         broker: manifest.broker.clone(),
         observed_destinations: vec![manifest.destination.clone()],
-        writable_mount_limit_bytes: manifest.max_remote_work_bytes,
-        unaccounted_writable_mounts: 0,
-        kernel_disk_limit: ControlAttestation::Passed,
+        remote_work_tmpfs_bytes: manifest.max_remote_work_bytes,
+        input_tmpfs_bytes: 256 * 1024,
+        output_tmpfs_bytes: manifest.max_bundle_bytes
+            + u64::try_from(manifest.max_output_bytes).expect("output bound"),
+        temporary_tmpfs_bytes: 16 * 1024 * 1024,
+        unaccounted_writable_data_mounts: 0,
+        kernel_writable_storage_limit: ControlAttestation::Passed,
         root_read_only: ControlAttestation::Passed,
-        exact_egress_only: ControlAttestation::Passed,
+        no_new_privileges: ControlAttestation::Passed,
+        capabilities_dropped: ControlAttestation::Passed,
+        worker_internal_network_only: ControlAttestation::Passed,
+        proxy_dual_homed: ControlAttestation::Passed,
+        destination_enforcement: RemoteDestinationEnforcement::ApplicationConnectProxy,
+        kernel_exact_destination_enforced: false,
+        worker_default_route_absent: ControlAttestation::Passed,
+        proxy_gateway_and_host_reachability_kernel_blocked: false,
         git_execution_neutralized: ControlAttestation::Passed,
         credentials_isolated: ControlAttestation::Passed,
         resolved_commit: "0123456789abcdef0123456789abcdef01234567".to_owned(),
@@ -134,18 +178,24 @@ fn local_snapshot_is_content_bound_redacted_and_idempotent() {
         .expect("idempotent acquisition");
 
     assert_eq!(first.reference, second.reference);
-    assert_eq!(first.snapshot_root, second.snapshot_root);
+    assert_eq!(
+        first.trusted_snapshot_root(),
+        second.trusted_snapshot_root()
+    );
     assert_eq!(first.reference.redacted_locator, "local://<redacted>");
+    let debug = format!("{first:?}");
+    assert!(!debug.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!debug.contains("private-project-name"));
     assert!(
         !serde_json::to_string(&first.receipt)
             .expect("receipt")
             .contains("private-project-name")
     );
     assert_eq!(
-        fs::read(first.snapshot_root.join("tree/main.py")).expect("snapshot file"),
+        fs::read(first.trusted_snapshot_root().join("tree/main.py")).expect("snapshot file"),
         b"print('safe')\n"
     );
-    assert!(!first.snapshot_root.join("tree/.git").exists());
+    assert!(!first.trusted_snapshot_root().join("tree/.git").exists());
     assert_eq!(first.receipt.file_count, 2);
 }
 
@@ -161,7 +211,7 @@ fn existing_snapshot_tamper_fails_integrity_reuse() {
     let acquirer = Acquirer::new(temp.path().join("state")).expect("acquirer");
     let acquisition = request(local_source(&source));
     let snapshot = acquirer.acquire(&acquisition).expect("snapshot");
-    let snapshot_file = snapshot.snapshot_root.join("tree/main.py");
+    let snapshot_file = snapshot.trusted_snapshot_root().join("tree/main.py");
     fs::set_permissions(&snapshot_file, fs::Permissions::from_mode(0o600)).expect("writable");
     fs::write(&snapshot_file, b"tampered\n").expect("tamper fixture");
 
@@ -185,8 +235,18 @@ fn selected_roots_exclude_siblings_and_are_bound_into_identity() {
     selected.selected_roots = vec!["src".to_owned()];
     let snapshot = acquirer.acquire(&selected).expect("selected snapshot");
 
-    assert!(snapshot.snapshot_root.join("tree/src/lib.rs").exists());
-    assert!(!snapshot.snapshot_root.join("tree/private/key.txt").exists());
+    assert!(
+        snapshot
+            .trusted_snapshot_root()
+            .join("tree/src/lib.rs")
+            .exists()
+    );
+    assert!(
+        !snapshot
+            .trusted_snapshot_root()
+            .join("tree/private/key.txt")
+            .exists()
+    );
     assert_eq!(snapshot.receipt.selected_roots, ["src"]);
 }
 
@@ -210,8 +270,18 @@ fn selected_roots_do_not_traverse_unrelated_hostile_siblings() {
     selected.selected_roots = vec!["src".to_owned()];
 
     let snapshot = acquirer.acquire(&selected).expect("selected snapshot");
-    assert!(snapshot.snapshot_root.join("tree/src/lib.rs").exists());
-    assert!(!snapshot.snapshot_root.join("tree/unselected").exists());
+    assert!(
+        snapshot
+            .trusted_snapshot_root()
+            .join("tree/src/lib.rs")
+            .exists()
+    );
+    assert!(
+        !snapshot
+            .trusted_snapshot_root()
+            .join("tree/unselected")
+            .exists()
+    );
 }
 
 #[cfg(unix)]
@@ -331,7 +401,12 @@ fn tar_archive_and_bundle_publish_identical_content_as_distinct_receipts() {
         bundle_snapshot.reference.snapshot_id
     );
     assert_eq!(
-        fs::read(bundle_snapshot.snapshot_root.join("tree/src/main.py")).expect("snapshot file"),
+        fs::read(
+            bundle_snapshot
+                .trusted_snapshot_root()
+                .join("tree/src/main.py"),
+        )
+        .expect("snapshot file"),
         content
     );
 }
@@ -405,7 +480,10 @@ fn remote_https_manifest_is_content_bound_redacted_and_exact_destination_only() 
     assert_eq!(manifest.destination.host, "github.com");
     assert_eq!(manifest.destination.port, 443);
     assert_eq!(manifest.redacted_locator, "https://github.com/<redacted>");
-    assert_eq!(manifest.egress_policy, "exact_destination_only");
+    assert_eq!(
+        manifest.egress_policy,
+        "application_connect_proxy_exact_destination"
+    );
     assert_eq!(manifest.checkout_policy, "no_checkout");
     assert_eq!(manifest.selected_roots, ["src"]);
     assert_eq!(manifest.manifest_digest, manifest.computed_digest());
@@ -428,6 +506,68 @@ fn remote_https_manifest_is_content_bound_redacted_and_exact_destination_only() 
     );
 }
 
+#[test]
+fn remote_manifest_caps_memory_amplifying_wire_limits() {
+    let acquisition = AcquisitionRequest {
+        source: AcquisitionSource::Https {
+            url: "https://github.com/example/project.git".to_owned(),
+            revision: "main".to_owned(),
+        },
+        authority_id: "auth_019f0000-0000-7000-8000-000000000001".to_owned(),
+        authority_digest: AUTHORITY_DIGEST.to_owned(),
+        selected_roots: Vec::new(),
+        limits: AcquisitionLimits::default(),
+    };
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("remote manifest");
+
+    assert_eq!(manifest.max_total_bytes, 32 * 1024 * 1024);
+    assert_eq!(manifest.max_file_bytes, 16 * 1024 * 1024);
+    assert_eq!(manifest.max_remote_work_bytes, 256 * 1024 * 1024);
+    assert_eq!(manifest.max_bundle_bytes, 64 * 1024 * 1024);
+}
+
+#[cfg(unix)]
+#[test]
+fn orbstack_backend_accepts_only_the_reviewed_image_and_binaries() {
+    let docker = PathBuf::from("/opt/homebrew/bin/docker");
+    assert!(OrbstackPublicGitBackend::reviewed(&docker).is_ok());
+    assert!(
+        OrbstackPublicGitBackend::new(
+            &docker,
+            ORBSTACK_PUBLIC_GIT_IMAGE_REFERENCE,
+            RemoteBackendPolicy::reviewed_orbstack_macos_arm64_v1(),
+        )
+        .is_ok()
+    );
+
+    let reviewed = RemoteBackendPolicy::reviewed_orbstack_macos_arm64_v1();
+    let mut substitutions = Vec::new();
+    let mut policy = reviewed.clone();
+    policy.image_digest = format!("sha256:{}", "1".repeat(64));
+    substitutions.push(policy);
+    let mut policy = reviewed.clone();
+    policy.runner_digest = format!("sha256:{}", "2".repeat(64));
+    substitutions.push(policy);
+    let mut policy = reviewed;
+    policy.egress_proxy_digest = format!("sha256:{}", "3".repeat(64));
+    substitutions.push(policy);
+    for policy in substitutions {
+        assert_eq!(
+            OrbstackPublicGitBackend::new(&docker, ORBSTACK_PUBLIC_GIT_IMAGE_REFERENCE, policy,),
+            Err(AcquisitionError::InvalidRemoteBackend)
+        );
+    }
+    assert_eq!(
+        OrbstackPublicGitBackend::new(
+            &docker,
+            format!("attacker-controlled-name@{ORBSTACK_PUBLIC_GIT_IMAGE_DIGEST}"),
+            RemoteBackendPolicy::reviewed_orbstack_macos_arm64_v1(),
+        ),
+        Err(AcquisitionError::InvalidRemoteBackend)
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn remote_ssh_manifest_binds_broker_bytes_without_persisting_paths_or_content() {
@@ -436,10 +576,14 @@ fn remote_ssh_manifest_binds_broker_bytes_without_persisting_paths_or_content() 
     let temp = TempDir::new().expect("temp dir");
     let broker = temp.path().join("broker-private-name");
     let broker_request = temp.path().join("request-private-name");
-    let request_canary = b"PRIVATE_REPOSITORY_LOCATOR_CANARY";
+    let request_canary = "PRIVATE_REPOSITORY_LOCATOR_CANARY/project.git";
     fs::write(&broker, b"#!/bin/sh\nexit 1\n").expect("broker");
     fs::set_permissions(&broker, fs::Permissions::from_mode(0o700)).expect("broker mode");
-    fs::write(&broker_request, request_canary).expect("broker request");
+    fs::write(
+        &broker_request,
+        ssh_broker_request_bytes("github.com", "private_handle_canary", request_canary),
+    )
+    .expect("broker request");
     fs::set_permissions(&broker_request, fs::Permissions::from_mode(0o600)).expect("request mode");
     let acquisition = request(AcquisitionSource::SshBrokered {
         display_host: "github.com".to_owned(),
@@ -463,12 +607,20 @@ fn remote_ssh_manifest_binds_broker_bytes_without_persisting_paths_or_content() 
         broker.to_string_lossy().as_ref(),
         broker_request.to_string_lossy().as_ref(),
         "private_handle_canary",
-        std::str::from_utf8(request_canary).expect("ascii canary"),
+        request_canary,
     ] {
         assert!(!encoded.contains(protected), "leaked {protected}");
     }
 
-    fs::write(&broker_request, b"changed request").expect("changed request");
+    fs::write(
+        &broker_request,
+        ssh_broker_request_bytes(
+            "github.com",
+            "private_handle_canary",
+            "changed/repository.git",
+        ),
+    )
+    .expect("changed request");
     let changed = build_remote_git_manifest(&acquisition, remote_backend_policy())
         .expect("changed broker manifest");
     assert_ne!(changed.manifest_digest, manifest.manifest_digest);
@@ -485,7 +637,11 @@ fn remote_ssh_manifest_rejects_unapproved_hosts_and_unsafe_broker_files() {
     let broker_request = temp.path().join("request");
     fs::write(&broker, b"#!/bin/sh\nexit 1\n").expect("broker");
     fs::set_permissions(&broker, fs::Permissions::from_mode(0o700)).expect("broker mode");
-    fs::write(&broker_request, b"opaque request").expect("request");
+    fs::write(
+        &broker_request,
+        ssh_broker_request_bytes("github.com", "request_abc123", "private/repository.git"),
+    )
+    .expect("request");
     fs::set_permissions(&broker_request, fs::Permissions::from_mode(0o600)).expect("request mode");
 
     let source = |display_host: &str, executable: PathBuf| {
@@ -513,6 +669,98 @@ fn remote_ssh_manifest_rejects_unapproved_hosts_and_unsafe_broker_files() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn reviewed_ssh_broker_preflight_is_digest_bound_redacted_and_fail_closed() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().expect("temp dir");
+    let broker_path = temp.path().join("reviewed-broker-private-path");
+    let broker_bytes = b"synthetic reviewed broker binary";
+    fs::write(&broker_path, broker_bytes).expect("broker");
+    fs::set_permissions(&broker_path, fs::Permissions::from_mode(0o700)).expect("broker mode");
+    let broker_digest = test_domain_digest("ssh-broker-executable", broker_bytes);
+    let reviewed =
+        ReviewedSshBroker::new(&broker_path, broker_digest.clone(), remote_backend_policy())
+            .expect("reviewed broker");
+    assert!(!format!("{reviewed:?}").contains("reviewed-broker-private-path"));
+
+    let handle = "grant_abc123";
+    let repository = "private-owner/private-repository.git";
+    let request_path = temp.path().join("private-request-path");
+    let request_bytes = ssh_broker_request_bytes("github.com", handle, repository);
+    fs::write(&request_path, &request_bytes).expect("request");
+    fs::set_permissions(&request_path, fs::Permissions::from_mode(0o600)).expect("request mode");
+    let acquisition = request(AcquisitionSource::SshBrokered {
+        display_host: "github.com".to_owned(),
+        opaque_handle: handle.to_owned(),
+        revision: "main".to_owned(),
+        broker_executable: broker_path.clone(),
+        broker_request: request_path,
+    });
+    let manifest =
+        build_remote_git_manifest(&acquisition, remote_backend_policy()).expect("manifest");
+    let binding = manifest.broker.as_ref().expect("broker binding");
+    assert_eq!(binding.executable_digest, broker_digest);
+    let parsed: SshBrokerGrantRequest =
+        serde_json::from_slice(&request_bytes).expect("request schema");
+    let granted = crate::remote::SshBrokerGrantResponse {
+        schema_version: SSH_BROKER_RESPONSE_VERSION.to_owned(),
+        request_digest: binding.request_digest.clone(),
+        executable_digest: binding.executable_digest.clone(),
+        handle_digest: binding.handle_digest.clone(),
+        decision: crate::remote::SshBrokerDecision::Granted,
+        confirmed_host_key_sha256: Some(parsed.host_key_sha256.clone()),
+    };
+    let runner = FakeSshBrokerRunner::new(serde_jcs::to_vec(&granted).expect("canonical response"));
+    Acquirer::preflight_ssh_broker(&acquisition, &reviewed, &runner, &AtomicBool::new(false))
+        .expect("granted preflight");
+    let plans = runner.plans();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].program, broker_path);
+    assert_eq!(plans[0].stdin, request_bytes);
+    assert!(!format!("{:?}", plans[0]).contains(repository));
+
+    for decision in [
+        crate::remote::SshBrokerDecision::Denied,
+        crate::remote::SshBrokerDecision::Unavailable,
+    ] {
+        let response = crate::remote::SshBrokerGrantResponse {
+            schema_version: SSH_BROKER_RESPONSE_VERSION.to_owned(),
+            request_digest: binding.request_digest.clone(),
+            executable_digest: binding.executable_digest.clone(),
+            handle_digest: binding.handle_digest.clone(),
+            decision,
+            confirmed_host_key_sha256: None,
+        };
+        let runner =
+            FakeSshBrokerRunner::new(serde_jcs::to_vec(&response).expect("canonical response"));
+        let expected = match decision {
+            crate::remote::SshBrokerDecision::Denied => AcquisitionError::SshBrokerDenied,
+            crate::remote::SshBrokerDecision::Unavailable => AcquisitionError::SshBrokerUnavailable,
+            crate::remote::SshBrokerDecision::Granted => unreachable!(),
+        };
+        assert_eq!(
+            Acquirer::preflight_ssh_broker(
+                &acquisition,
+                &reviewed,
+                &runner,
+                &AtomicBool::new(false),
+            ),
+            Err(expected)
+        );
+    }
+
+    let mut tampered = granted;
+    tampered.confirmed_host_key_sha256 = Some(format!("SHA256:{}", "B".repeat(43)));
+    let runner =
+        FakeSshBrokerRunner::new(serde_jcs::to_vec(&tampered).expect("canonical response"));
+    assert_eq!(
+        Acquirer::preflight_ssh_broker(&acquisition, &reviewed, &runner, &AtomicBool::new(false),),
+        Err(AcquisitionError::InvalidSshBrokerResponse)
+    );
+}
+
 #[test]
 fn remote_attestation_structure_requires_every_isolation_egress_and_cleanup_control() {
     let acquisition = request(AcquisitionSource::Https {
@@ -534,15 +782,18 @@ fn remote_attestation_structure_requires_every_isolation_egress_and_cleanup_cont
     .expect("structurally valid result");
 
     let rejected = [
-        accepted
-            .clone()
-            .model_copy_for_test(|value| value.kernel_disk_limit = ControlAttestation::Failed),
+        accepted.clone().model_copy_for_test(|value| {
+            value.kernel_writable_storage_limit = ControlAttestation::Failed;
+        }),
         accepted
             .clone()
             .model_copy_for_test(|value| value.root_read_only = ControlAttestation::Failed),
-        accepted
-            .clone()
-            .model_copy_for_test(|value| value.exact_egress_only = ControlAttestation::Failed),
+        accepted.clone().model_copy_for_test(|value| {
+            value.kernel_exact_destination_enforced = true;
+        }),
+        accepted.clone().model_copy_for_test(|value| {
+            value.worker_default_route_absent = ControlAttestation::Failed;
+        }),
         accepted.clone().model_copy_for_test(|value| {
             value.git_execution_neutralized = ControlAttestation::Failed;
         }),
@@ -550,7 +801,7 @@ fn remote_attestation_structure_requires_every_isolation_egress_and_cleanup_cont
             value.credentials_isolated = ControlAttestation::Failed;
         }),
         accepted.clone().model_copy_for_test(|value| {
-            value.unaccounted_writable_mounts = 1;
+            value.unaccounted_writable_data_mounts = 1;
         }),
         accepted.clone().model_copy_for_test(|value| {
             value.observed_destinations = vec![EgressDestination {
@@ -713,7 +964,11 @@ fn brokered_ssh_uses_only_an_opaque_git_locator() {
     let broker_request = temp.path().join("request");
     fs::write(&broker, b"#!/bin/sh\nexit 1\n").expect("broker");
     fs::set_permissions(&broker, fs::Permissions::from_mode(0o700)).expect("mode");
-    fs::write(&broker_request, b"private/repository/name").expect("request");
+    fs::write(
+        &broker_request,
+        ssh_broker_request_bytes("github.com", "request_abc123", "private/repository/name"),
+    )
+    .expect("request");
     fs::set_permissions(&broker_request, fs::Permissions::from_mode(0o600)).expect("mode");
     let source = AcquisitionSource::SshBrokered {
         display_host: "github.com".to_owned(),
@@ -789,7 +1044,8 @@ fn fake_public_remote_is_inventoried_without_checkout_filters_or_submodules() {
         Some("git version 2.50.1")
     );
     assert_eq!(
-        fs::read(snapshot.snapshot_root.join("tree/src/main.py")).expect("snapshot file"),
+        fs::read(snapshot.trusted_snapshot_root().join("tree/src/main.py"),)
+            .expect("snapshot file"),
         b"hello\n"
     );
     assert_eq!(runner.remaining(), 0);
@@ -842,6 +1098,47 @@ fn local_hardlink_is_rejected_as_external_content_risk() {
 #[derive(Debug)]
 struct ScriptedRunner {
     outputs: Mutex<Vec<GitOutput>>,
+}
+
+#[cfg(unix)]
+struct FakeSshBrokerRunner {
+    output: Vec<u8>,
+    plans: Mutex<Vec<SshBrokerCommandPlan>>,
+}
+
+#[cfg(unix)]
+impl FakeSshBrokerRunner {
+    fn new(output: Vec<u8>) -> Self {
+        Self {
+            output,
+            plans: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn plans(&self) -> Vec<SshBrokerCommandPlan> {
+        self.plans.lock().expect("broker plans lock").clone()
+    }
+}
+
+#[cfg(unix)]
+impl SshBrokerRunner for FakeSshBrokerRunner {
+    fn run(
+        &self,
+        plan: &SshBrokerCommandPlan,
+        cancelled: &AtomicBool,
+    ) -> Result<SshBrokerCommandOutput, AcquisitionError> {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(AcquisitionError::Cancelled);
+        }
+        self.plans
+            .lock()
+            .expect("broker plans lock")
+            .push(plan.clone());
+        Ok(SshBrokerCommandOutput {
+            success: true,
+            stdout: self.output.clone(),
+        })
+    }
 }
 
 #[cfg(unix)]

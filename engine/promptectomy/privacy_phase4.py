@@ -59,7 +59,14 @@ class EgressAuthority:
     action_id: str
     snapshot_digest: str
     selected_roots_digest: str
+    exclusions_digest: str
+    revision: str
+    mode: Literal["audit", "draft"]
+    stage: str
     destination: str
+    destination_organization: str
+    destination_service: str
+    data_policy_url: str
     endpoint_class: str
     transport: Literal["https"]
     endpoint_path: str
@@ -68,6 +75,9 @@ class EgressAuthority:
     model: str
     prompt_bundle_digest: str
     adapter_version: str
+    agent_runtime: str
+    minimization_version: str
+    redaction_version: str
     policy_digest: str
     expires_at_unix: int
     maximum_files: int
@@ -75,8 +85,13 @@ class EgressAuthority:
     maximum_requests: int
     maximum_tokens: int
     maximum_cost_microusd: int
+    maximum_duration_seconds: int
     local_retention_days: int
     external_retention_days: int
+    destination_deletion_supported: bool
+    cancellation_behavior: str
+    revocation_behavior: str
+    cleanup_behavior: str
     reusable: bool = False
 
 
@@ -84,11 +99,16 @@ class EgressAuthority:
 class EgressPreview:
     manifest_digest: str
     destination: str
+    destination_organization: str
+    destination_service: str
+    data_policy_url: str
     purpose: str
     slices: tuple[MinimizedSlice, ...]
     total_bytes: int
     secret_scan_version: str
     content_classes: tuple[str, ...]
+    sample_preview: str
+    external_copy_warning: str
 
 
 @dataclass(frozen=True)
@@ -161,6 +181,7 @@ _HOST = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
 _TOKEN = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
 _OPAQUE_ID = re.compile(r"^[a-z][a-z0-9_]{0,31}_[0-9a-f]{64}$")
 _ENDPOINT_PATH = re.compile(r"^/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{0,511}$")
+_POLICY_URL = re.compile(r"^https://[a-z0-9.-]{1,253}/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{0,511}$")
 _APPROVED_EGRESS_DESTINATIONS = {"api.openai.com"}
 
 
@@ -195,6 +216,7 @@ def _validate_authority(authority: EgressAuthority) -> None:
         for value in (
             authority.snapshot_digest,
             authority.selected_roots_digest,
+            authority.exclusions_digest,
             authority.prompt_bundle_digest,
             authority.policy_digest,
         )
@@ -207,8 +229,33 @@ def _validate_authority(authority: EgressAuthority) -> None:
         or authority.destination not in _APPROVED_EGRESS_DESTINATIONS
     ):
         raise PrivacyError("invalid_egress_authority", "Egress destination must be one explicit host")
-    if not _TOKEN.fullmatch(authority.endpoint_class) or not _TOKEN.fullmatch(authority.purpose):
+    if not all(
+        _TOKEN.fullmatch(value)
+        for value in (
+            authority.endpoint_class,
+            authority.purpose,
+            authority.stage,
+            authority.destination_organization,
+            authority.destination_service,
+            authority.agent_runtime,
+            authority.minimization_version,
+            authority.redaction_version,
+            authority.cancellation_behavior,
+            authority.revocation_behavior,
+            authority.cleanup_behavior,
+        )
+    ):
         raise PrivacyError("invalid_egress_authority", "Egress endpoint class or purpose is invalid")
+    if authority.mode not in {"audit", "draft"}:
+        raise PrivacyError("invalid_egress_authority", "Egress mode is invalid")
+    if (
+        not authority.revision
+        or len(authority.revision) > 200
+        or any(ord(character) < 32 for character in authority.revision)
+    ):
+        raise PrivacyError("invalid_egress_authority", "Egress revision is invalid")
+    if not _POLICY_URL.fullmatch(authority.data_policy_url):
+        raise PrivacyError("invalid_egress_authority", "Destination data policy URL is invalid")
     if authority.transport != "https" or not _ENDPOINT_PATH.fullmatch(authority.endpoint_path):
         raise PrivacyError("invalid_egress_authority", "Egress transport or endpoint path is invalid")
     if not _TOKEN.fullmatch(authority.region) or not _TOKEN.fullmatch(authority.adapter_version):
@@ -220,8 +267,10 @@ def _validate_authority(authority: EgressAuthority) -> None:
     if (
         authority.maximum_files <= 0
         or authority.maximum_cost_microusd < 0
+        or authority.maximum_duration_seconds <= 0
         or authority.local_retention_days < 0
         or authority.external_retention_days < 0
+        or authority.destination_deletion_supported
     ):
         raise PrivacyError("invalid_egress_authority", "Egress count, cost, or retention budget is invalid")
 
@@ -277,7 +326,14 @@ def build_egress_preview(
         "action_id": authority.action_id,
         "snapshot_digest": authority.snapshot_digest,
         "selected_roots_digest": authority.selected_roots_digest,
+        "exclusions_digest": authority.exclusions_digest,
+        "revision": authority.revision,
+        "mode": authority.mode,
+        "stage": authority.stage,
         "destination": authority.destination,
+        "destination_organization": authority.destination_organization,
+        "destination_service": authority.destination_service,
+        "data_policy_url": authority.data_policy_url,
         "endpoint_class": authority.endpoint_class,
         "transport": authority.transport,
         "endpoint_path": authority.endpoint_path,
@@ -286,6 +342,9 @@ def build_egress_preview(
         "model": authority.model,
         "prompt_bundle_digest": authority.prompt_bundle_digest,
         "adapter_version": authority.adapter_version,
+        "agent_runtime": authority.agent_runtime,
+        "minimization_version": authority.minimization_version,
+        "redaction_version": authority.redaction_version,
         "policy_digest": authority.policy_digest,
         "expires_at_unix": authority.expires_at_unix,
         "budgets": {
@@ -294,9 +353,14 @@ def build_egress_preview(
             "requests": authority.maximum_requests,
             "tokens": authority.maximum_tokens,
             "cost_microusd": authority.maximum_cost_microusd,
+            "duration_seconds": authority.maximum_duration_seconds,
         },
         "local_retention_days": authority.local_retention_days,
         "external_retention_days": authority.external_retention_days,
+        "destination_deletion_supported": authority.destination_deletion_supported,
+        "cancellation_behavior": authority.cancellation_behavior,
+        "revocation_behavior": authority.revocation_behavior,
+        "cleanup_behavior": authority.cleanup_behavior,
         "reusable": authority.reusable,
         "slices": [item.__dict__ for item in minimized],
         "secret_scan_version": SECRET_SCAN_VERSION,
@@ -305,11 +369,18 @@ def build_egress_preview(
     return EgressPreview(
         manifest_digest=_sha256(rfc8785.dumps(manifest)),
         destination=authority.destination,
+        destination_organization=authority.destination_organization,
+        destination_service=authority.destination_service,
+        data_policy_url=authority.data_policy_url,
         purpose=authority.purpose,
         slices=tuple(minimized),
         total_bytes=total,
         secret_scan_version=SECRET_SCAN_VERSION,
         content_classes=("D1_source_confidential",),
+        sample_preview=f"{len(minimized)} source slice(s), {total} byte(s), content omitted",
+        external_copy_warning=(
+            "The destination may retain external copies that PROMPTECTOMY cannot delete."
+        ),
     )
 
 

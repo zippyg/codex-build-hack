@@ -6,9 +6,12 @@ members = [
     "crates/promptectomy-contracts",
     "crates/promptectomy-core",
     "crates/promptectomy-daemon",
+    "crates/promptectomy-egress-proxy",
     "crates/promptectomy-fixtures",
     "crates/promptectomy-protected-store",
     "crates/promptectomy-protocol",
+    "crates/promptectomy-remote-git-runner",
+    "crates/promptectomy-ssh-agent-relay",
 ]
 
 [workspace.package]

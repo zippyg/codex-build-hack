@@ -24,12 +24,15 @@ EVIDENCE = {
     "DISC-TS",
     "EGRESS",
     "GIT-LOCAL",
+    "GIT-SSH-BROKER",
     "NONMUTATION",
     "OTLP-GRPC",
     "OTLP-HTTP",
     "OTLP-MAPPING",
     "PATH",
     "PRIV-CANARY",
+    "REMOTE-ARTIFACT-PINS",
+    "REMOTE-IMAGE-PACKAGES",
     "TREE-SITTER-PINNED",
 }
 
@@ -47,7 +50,9 @@ def _receipt(evidence: set[str] = EVIDENCE) -> Phase4EvidenceReceipt:
 
 def test_matrix_publishes_only_evidenced_stable_cells_and_visible_gaps() -> None:
     receipt = _receipt()
-    matrix = build_phase4_support_matrix(receipt=receipt, receipt_id=receipt.receipt_id())
+    matrix = build_phase4_support_matrix(
+        receipt=receipt, receipt_id=receipt.receipt_id()
+    )
     cells = matrix["cells"]
     assert isinstance(cells, list)
     stable = [cell for cell in cells if cell["state"] == "stable"]
@@ -55,13 +60,40 @@ def test_matrix_publishes_only_evidenced_stable_cells_and_visible_gaps() -> None
     assert all(cell["evidence"] for cell in stable)
     local = next(cell for cell in stable if cell["cell_id"] == "acquisition_local")
     assert "Windows" in local["limitation"]
-    assert any(cell["cell_id"] == "acquisition_https" and cell["state"] == "unsupported" for cell in cells)
-    assert any(cell["cell_id"] == "python_runtime_capture" and cell["state"] == "stable" for cell in cells)
-    assert any(cell["cell_id"] == "node_runtime_capture" and cell["state"] == "stable" for cell in cells)
-    assert any(cell["cell_id"] == "persistent_protected_storage" and cell["state"] == "unsupported" for cell in cells)
-    assert any(cell["cell_id"] == "local_deletion" and cell["state"] == "experimental" for cell in cells)
-    assert any(cell["state"] == "experimental" and cell["level"] == "L3" for cell in cells)
-    assert any(cell["state"] == "unsupported" and cell["level"] == "L5" for cell in cells)
+    assert local["platforms"] == ("macos",)
+    assert any(
+        cell["cell_id"] == "acquisition_https" and cell["state"] == "unsupported"
+        for cell in cells
+    )
+    assert any(
+        cell["cell_id"] == "acquisition_ssh_broker"
+        and cell["state"] == "experimental"
+        and cell["platforms"] == ("macos-arm64-orbstack",)
+        for cell in cells
+    )
+    assert any(
+        cell["cell_id"] == "python_runtime_capture" and cell["state"] == "stable"
+        for cell in cells
+    )
+    assert any(
+        cell["cell_id"] == "node_runtime_capture" and cell["state"] == "stable"
+        for cell in cells
+    )
+    assert any(
+        cell["cell_id"] == "persistent_protected_storage"
+        and cell["state"] == "unsupported"
+        for cell in cells
+    )
+    assert any(
+        cell["cell_id"] == "local_deletion" and cell["state"] == "experimental"
+        for cell in cells
+    )
+    assert any(
+        cell["state"] == "experimental" and cell["level"] == "L3" for cell in cells
+    )
+    assert any(
+        cell["state"] == "unsupported" and cell["level"] == "L5" for cell in cells
+    )
 
 
 def test_missing_or_failed_evidence_cannot_be_published_as_stable() -> None:
@@ -72,7 +104,9 @@ def test_missing_or_failed_evidence_cannot_be_published_as_stable() -> None:
     failed = replace(
         receipt,
         records=tuple(
-            replace(record, status="failed") if record.suite_id == "TREE-SITTER-PINNED" else record
+            replace(record, status="failed")
+            if record.suite_id == "TREE-SITTER-PINNED"
+            else record
             for record in receipt.records
         ),
     )
@@ -83,7 +117,9 @@ def test_missing_or_failed_evidence_cannot_be_published_as_stable() -> None:
 def test_matrix_requires_exact_content_bound_receipt() -> None:
     receipt = _receipt()
     with pytest.raises(SupportMatrixError, match="content-bound"):
-        build_phase4_support_matrix(receipt=receipt, receipt_id="receipt_sha256_" + "0" * 64)
+        build_phase4_support_matrix(
+            receipt=receipt, receipt_id="receipt_sha256_" + "0" * 64
+        )
     forged = replace(receipt, source_head="b" * 40)
     with pytest.raises(SupportMatrixError, match="content-bound"):
         build_phase4_support_matrix(receipt=forged, receipt_id=receipt.receipt_id())

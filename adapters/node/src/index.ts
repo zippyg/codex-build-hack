@@ -260,8 +260,24 @@ function cancellation(error: unknown, request: Readonly<Record<string, unknown>>
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
-  return value !== null && typeof value === "object" && typeof Reflect.get(value, Symbol.asyncIterator) === "function";
+function asyncIteratorFactory(value: unknown): (() => AsyncIterator<unknown>) | null {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return null;
+  let current: object | null = value;
+  for (let depth = 0; current !== null && depth <= MAX_DEPTH; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(current, Symbol.asyncIterator);
+      current = Object.getPrototypeOf(current);
+    } catch {
+      return null;
+    }
+    if (descriptor) {
+      return "value" in descriptor && typeof descriptor.value === "function"
+        ? (descriptor.value as () => AsyncIterator<unknown>)
+        : null;
+    }
+  }
+  return null;
 }
 
 function validateRegistry(entries: readonly CallsiteRegistryEntry[]): VerifiedCallsiteRegistry {
@@ -363,9 +379,7 @@ class Attempt {
     }
     const callbackDuration = performance.now() - callbackStarted;
     if (
-      (result !== null &&
-        (typeof result === "object" || typeof result === "function") &&
-        typeof Reflect.get(result, "then") === "function") ||
+      (result !== null && (typeof result === "object" || typeof result === "function")) ||
       callbackDuration > this.maxSinkMilliseconds
     ) {
       throw new CaptureCallbackError("The capture observation callback exceeded its contract");
@@ -386,10 +400,11 @@ class CapturedAsyncStream implements AsyncIterableIterator<unknown> {
   #events = 0;
 
   constructor(
-    stream: AsyncIterable<unknown>,
+    stream: object,
+    iteratorFactory: () => AsyncIterator<unknown>,
     readonly attempt: Attempt,
   ) {
-    this.#iterator = stream[Symbol.asyncIterator]();
+    this.#iterator = iteratorFactory.call(stream);
   }
 
   [Symbol.asyncIterator](): AsyncIterableIterator<unknown> {
@@ -480,12 +495,13 @@ export function captureResponses(responses: ResponsesCallables, options: Capture
       const method = operation === "responses.create" ? responses.create : responses.parse;
       const result = await method(...args);
       if (request.stream === true) {
-        if (!isAsyncIterable(result)) {
+        const iteratorFactory = asyncIteratorFactory(result);
+        if (iteratorFactory === null || result === null || typeof result !== "object") {
           const error = new TypeError("A streaming Responses call returned a non-stream value");
           attempt.finishPreserving(error);
           throw error;
         }
-        return new CapturedAsyncStream(result, attempt);
+        return new CapturedAsyncStream(result, iteratorFactory, attempt);
       }
       attempt.finish("ok", result);
       return result;

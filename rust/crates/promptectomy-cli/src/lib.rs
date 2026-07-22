@@ -4,17 +4,18 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum, error::ErrorKind};
+use promptectomy_acquisition::OrbstackPublicGitBackend;
 use promptectomy_contracts::{SCHEMA_SHA256, SCHEMA_VERSION};
 use promptectomy_daemon::{
     ApiEnvelope, ClientResponse, DaemonConfig, DaemonError, EndpointMetadata, PROTOCOL_VERSION,
-    SafeError, default_config, open_core_store, read_metadata, request, sanitize_terminal,
-    unavailable,
+    RepositoryInspectLimits, RepositoryInspectRequest, RepositorySource, SafeError, default_config,
+    open_core_store, read_metadata, request, sanitize_terminal, unavailable,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
 use thiserror::Error;
 
-pub const CLI_PROTOCOL_VERSION: &str = "phase3-cli-1";
+pub const CLI_PROTOCOL_VERSION: &str = "phase4-cli-1";
 const WATCH_RECONNECT_ATTEMPTS: usize = 6;
 
 #[derive(Debug, Parser)]
@@ -44,7 +45,7 @@ pub enum Command {
     Gc(GcArgs),
     MigratePythonV2(MigrationArgs),
     Init(PathArg),
-    Inspect(PathArg),
+    Inspect(InspectArgs),
     Audit(PathArg),
     Draft(PathArg),
     Calls(RunIdArgs),
@@ -109,6 +110,25 @@ pub struct PathArg {
     pub path: Option<PathBuf>,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum InspectSourceKind {
+    Local,
+    ArchiveTar,
+    Bundle,
+    Https,
+}
+
+#[derive(Debug, Args)]
+pub struct InspectArgs {
+    pub source: String,
+    #[arg(long, value_enum, default_value_t = InspectSourceKind::Local)]
+    pub source_kind: InspectSourceKind,
+    #[arg(long)]
+    pub revision: Option<String>,
+    #[arg(long = "root")]
+    pub selected_roots: Vec<String>,
+}
+
 #[derive(Debug, Args)]
 pub struct ApplyArgs {
     pub candidate_id: String,
@@ -120,6 +140,8 @@ pub struct ApplyArgs {
 pub struct DaemonArgs {
     #[arg(long)]
     pub endpoint_json: bool,
+    #[arg(long)]
+    pub orbstack_docker: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -253,12 +275,9 @@ pub async fn run(cli: Cli) -> ExitClass {
         Command::MigratePythonV2(args) => migrate_python_v2(&config, args),
         Command::Init(_) => Ok(local_unavailable(
             "init",
-            "Rust repository initialization is not implemented in Phase 3.",
+            "Repository initialization is not implemented in this build.",
         )),
-        Command::Inspect(_) => Ok(local_unavailable(
-            "inspect",
-            "Use the accepted Python oracle until Rust inspection lands.",
-        )),
+        Command::Inspect(args) => inspect(&config, args).await,
         Command::Audit(_) => Ok(local_unavailable(
             "audit",
             "Use the accepted Python oracle until Rust audit lands.",
@@ -325,6 +344,11 @@ async fn doctor(config: &DaemonConfig) -> Result<CliEnvelope<'static>, CliError>
         Some(metadata) => request(metadata, "GET", "/v2/health", None).await.ok(),
         None => None,
     };
+    let daemon_capabilities = daemon
+        .as_ref()
+        .and_then(|response| response.envelope.data.as_ref())
+        .and_then(|data| data.get("capabilities"))
+        .cloned();
     Ok(CliEnvelope {
         schema_version: SCHEMA_VERSION,
         cli_protocol_version: CLI_PROTOCOL_VERSION,
@@ -345,6 +369,21 @@ async fn doctor(config: &DaemonConfig) -> Result<CliEnvelope<'static>, CliError>
                 "private": metadata.as_ref().is_some_and(|value| value.private),
                 "loopback_tcp_default": false,
             },
+            "capabilities": daemon_capabilities.unwrap_or_else(|| json!({
+                "acquisition": {
+                    "local_path": true,
+                    "archive_tar": true,
+                    "bundle": true,
+                    "public_https_orbstack": false,
+                    "ssh_brokered": false
+                },
+                "analysis": {
+                    "python_parser": false,
+                    "typescript_parser": false,
+                    "capture": false
+                },
+                "protected_storage": {"key_store": false}
+            })),
             "unsupported": {
                 "windows_named_pipe": cfg!(windows),
                 "agent_connector": true,
@@ -354,6 +393,50 @@ async fn doctor(config: &DaemonConfig) -> Result<CliEnvelope<'static>, CliError>
         })),
         error: None,
     })
+}
+
+async fn inspect(
+    config: &DaemonConfig,
+    args: &InspectArgs,
+) -> Result<CliEnvelope<'static>, CliError> {
+    let source = match args.source_kind {
+        InspectSourceKind::Local | InspectSourceKind::ArchiveTar | InspectSourceKind::Bundle => {
+            if args.revision.is_some() {
+                return Err(CliError::InvalidInput);
+            }
+            let path = PathBuf::from(&args.source);
+            let path = if path.is_absolute() {
+                path
+            } else {
+                std::env::current_dir()
+                    .map_err(|_| CliError::InvalidInput)?
+                    .join(path)
+            };
+            let path = path.to_str().ok_or(CliError::InvalidInput)?.to_owned();
+            match args.source_kind {
+                InspectSourceKind::Local => RepositorySource::Local { path },
+                InspectSourceKind::ArchiveTar => RepositorySource::ArchiveTar { path },
+                InspectSourceKind::Bundle => RepositorySource::Bundle { path },
+                InspectSourceKind::Https => unreachable!("HTTPS handled separately"),
+            }
+        }
+        InspectSourceKind::Https => RepositorySource::Https {
+            url: args.source.clone(),
+            revision: args.revision.clone().ok_or(CliError::InvalidInput)?,
+        },
+    };
+    post_json(
+        config,
+        "inspect",
+        "/v2/repositories/inspect",
+        &serde_json::to_value(RepositoryInspectRequest {
+            source,
+            selected_roots: args.selected_roots.clone(),
+            limits: RepositoryInspectLimits::default(),
+        })
+        .map_err(|_| CliError::InvalidInput)?,
+    )
+    .await
 }
 
 async fn status(
@@ -407,7 +490,7 @@ async fn report(
         ReportFormat::Html | ReportFormat::Ndjson | ReportFormat::Sarif | ReportFormat::Junit => {
             return Ok(local_unavailable(
                 "report",
-                "Only JSON and Markdown reports are wired in Phase 3.",
+                "Only JSON and Markdown reports are wired in this build.",
             ));
         }
     };
@@ -436,7 +519,13 @@ async fn daemon(
             error: None,
         });
     }
-    promptectomy_daemon::serve(config.clone())
+    let mut config = config.clone();
+    if let Some(docker) = &args.orbstack_docker {
+        let backend =
+            OrbstackPublicGitBackend::reviewed(docker).map_err(|_| CliError::InvalidInput)?;
+        config = config.with_public_git_backend(backend);
+    }
+    promptectomy_daemon::serve(config)
         .await
         .map_err(|_| CliError::DaemonUnavailable)?;
     Ok(success("daemon", json!({"stopped": true})))
@@ -521,6 +610,20 @@ async fn post_empty(
     Ok(wrap_response(command, {
         let metadata = read_metadata(config).map_err(|_| CliError::DaemonUnavailable)?;
         request(&metadata, "POST", path, None)
+            .await
+            .map_err(|_| CliError::Request)?
+    }))
+}
+
+async fn post_json(
+    config: &DaemonConfig,
+    command: &'static str,
+    path: &str,
+    body: &Value,
+) -> Result<CliEnvelope<'static>, CliError> {
+    Ok(wrap_response(command, {
+        let metadata = read_metadata(config).map_err(|_| CliError::DaemonUnavailable)?;
+        request(&metadata, "POST", path, Some(body))
             .await
             .map_err(|_| CliError::Request)?
     }))
@@ -771,6 +874,17 @@ mod tests {
         let data = envelope.data.unwrap();
         assert_eq!(data["local_api"]["daemon_reachable"], false);
         assert_eq!(data["local_api"]["loopback_tcp_default"], false);
+        assert_eq!(data["capabilities"]["acquisition"]["local_path"], true);
+        assert_eq!(
+            data["capabilities"]["acquisition"]["public_https_orbstack"],
+            false
+        );
+        assert_eq!(data["capabilities"]["analysis"]["python_parser"], false);
+        assert_eq!(data["capabilities"]["analysis"]["capture"], false);
+        assert_eq!(
+            data["capabilities"]["protected_storage"]["key_store"],
+            false
+        );
     }
 
     #[cfg(unix)]
@@ -812,6 +926,23 @@ mod tests {
     }
 
     #[test]
+    fn reviewed_remote_backend_has_one_explicit_argument() {
+        assert!(
+            Cli::try_parse_from([
+                "promptectomy",
+                "daemon",
+                "--orbstack-docker",
+                "/opt/homebrew/bin/docker"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Cli::try_parse_from(["promptectomy", "daemon", "--remote-image", "substituted"])
+                .is_err()
+        );
+    }
+
+    #[test]
     fn json_envelope_and_markdown_output_are_stable_and_sanitized() {
         let envelope = success("status", json!({"run_count": 1}));
         assert_eq!(
@@ -849,6 +980,71 @@ mod tests {
         ])
         .await;
         assert_eq!(explicit_branch, ExitClass::UnsupportedEvidence as i32);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cli_inspect_matches_the_redacted_daemon_contract() {
+        let daemon_root = tempfile::tempdir().unwrap();
+        let source_root = tempfile::tempdir().unwrap();
+        let canary = "cli-private-canary-c12a";
+        std::fs::write(source_root.path().join("lib.ts"), canary).unwrap();
+        let config = DaemonConfig::new(daemon_root.path());
+        let daemon = tokio::spawn(promptectomy_daemon::serve(config.clone()));
+        let _ = wait_for_daemon(&config).await;
+
+        let output = inspect(
+            &config,
+            &InspectArgs {
+                source: source_root.path().to_string_lossy().into_owned(),
+                source_kind: InspectSourceKind::Local,
+                revision: None,
+                selected_roots: vec!["lib.ts".to_owned()],
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(output.status, "ok");
+        let data = output.data.unwrap();
+        assert_eq!(data["snapshot_receipt"]["file_count"], 1);
+        assert_eq!(
+            data["snapshot_reference"]["redacted_locator"],
+            "local://<redacted>"
+        );
+        let encoded = serde_json::to_string(&data).unwrap();
+        assert!(!encoded.contains(canary));
+        assert!(!encoded.contains(&source_root.path().to_string_lossy().into_owned()));
+        daemon.abort();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "requires the accepted OrbStack runtime and reviewed local image"]
+    async fn cli_inspect_public_https_uses_the_real_reviewed_daemon_backend() {
+        let root = tempfile::tempdir().unwrap();
+        let backend = OrbstackPublicGitBackend::reviewed("/opt/homebrew/bin/docker").unwrap();
+        let config = DaemonConfig::new(root.path()).with_public_git_backend(backend);
+        let daemon = tokio::spawn(promptectomy_daemon::serve(config.clone()));
+        let _ = wait_for_daemon(&config).await;
+
+        let output = inspect(
+            &config,
+            &InspectArgs {
+                source: "https://github.com/zippyg/codex-build-hack.git".to_owned(),
+                source_kind: InspectSourceKind::Https,
+                revision: Some("main".to_owned()),
+                selected_roots: vec!["README.md".to_owned()],
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(output.status, "ok", "inspection error: {:?}", output.error);
+        let data = output.data.unwrap();
+        assert_eq!(data["snapshot_receipt"]["file_count"], 1);
+        let encoded = serde_json::to_string(&data).unwrap();
+        assert!(!encoded.contains("codex-build-hack"));
+        assert!(!encoded.contains("/Users/"));
+        daemon.abort();
     }
 
     #[test]

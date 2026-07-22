@@ -65,8 +65,16 @@ pub(crate) fn collect_bundle(
         limits.max_archive_bytes,
         AcquisitionError::ArchiveBytesExceeded,
     )?;
+    collect_bundle_bytes(&bytes, selected_roots, limits)
+}
+
+pub(crate) fn collect_bundle_bytes(
+    bytes: &[u8],
+    selected_roots: &[String],
+    limits: &AcquisitionLimits,
+) -> Result<CollectedMaterial, AcquisitionError> {
     let document: BundleDocument =
-        serde_json::from_slice(&bytes).map_err(|_| AcquisitionError::InvalidBundle)?;
+        serde_json::from_slice(bytes).map_err(|_| AcquisitionError::InvalidBundle)?;
     if document.version != BUNDLE_VERSION || document.files.len() > limits.max_files {
         return Err(AcquisitionError::InvalidBundle);
     }
@@ -98,7 +106,7 @@ pub(crate) fn collect_bundle(
     if files.is_empty() {
         return Err(AcquisitionError::EmptySelection);
     }
-    let source_digest = digest_string(&bytes);
+    let source_digest = digest_string(bytes);
     let mut material = CollectedMaterial::new(
         files,
         "bundle://<redacted>".to_owned(),

@@ -53,7 +53,14 @@ def _authority() -> EgressAuthority:
         action_id="action_" + "3" * 64,
         snapshot_digest="sha256:" + "4" * 64,
         selected_roots_digest="sha256:" + "5" * 64,
+        exclusions_digest="sha256:" + "7" * 64,
+        revision="0123456789abcdef0123456789abcdef01234567",
+        mode="audit",
+        stage="source_classification",
         destination="api.openai.com",
+        destination_organization="openai",
+        destination_service="responses_api",
+        data_policy_url="https://openai.com/policies/privacy-policy/",
         endpoint_class="openai_responses",
         transport="https",
         endpoint_path="/v1/responses",
@@ -62,6 +69,9 @@ def _authority() -> EgressAuthority:
         model="gpt-5.1-codex",
         prompt_bundle_digest="sha256:" + "a" * 64,
         adapter_version="responses_v1",
+        agent_runtime="trusted_connector",
+        minimization_version="source_slices_v1",
+        redaction_version="secret_scan_v1",
         policy_digest="sha256:" + "6" * 64,
         expires_at_unix=4_000_000_000,
         maximum_files=2,
@@ -69,8 +79,13 @@ def _authority() -> EgressAuthority:
         maximum_requests=1,
         maximum_tokens=2_000,
         maximum_cost_microusd=50_000,
+        maximum_duration_seconds=120,
         local_retention_days=0,
         external_retention_days=30,
+        destination_deletion_supported=False,
+        cancellation_behavior="stop_before_next_request",
+        revocation_behavior="stop_before_next_request",
+        cleanup_behavior="delete_unpinned_source_after_run",
     )
 
 
@@ -84,6 +99,10 @@ def test_egress_preview_is_exact_content_free_and_digest_bound() -> None:
     assert preview.total_bytes == len(content)
     assert preview.slices[0].content_digest.startswith("sha256:")
     assert not hasattr(preview.slices[0], "content")
+    assert preview.destination_organization == "openai"
+    assert preview.destination_service == "responses_api"
+    assert preview.sample_preview.endswith("content omitted")
+    assert "cannot delete" in preview.external_copy_warning
     assert preview_matches_authority(preview, preview.manifest_digest)
     assert not preview_matches_authority(preview, "sha256:" + "0" * 64)
 
@@ -165,6 +184,41 @@ def test_egress_authority_rejects_url_credentials_queries_and_unbound_prompt() -
                 authority,
                 local_only=False,
             )
+        assert caught.value.code == "invalid_egress_authority"
+
+
+def test_egress_preview_binds_context_and_rejects_ambiguous_external_controls() -> None:
+    slices = (SourceSlice("src/a.py", 1, 1, b"safe"),)
+    baseline = build_egress_preview(slices, _authority(), local_only=False).manifest_digest
+    variants = (
+        replace(_authority(), revision="fedcba9876543210fedcba9876543210fedcba98"),
+        replace(_authority(), mode="draft"),
+        replace(_authority(), stage="candidate_synthesis"),
+        replace(_authority(), destination_organization="openai_platform"),
+        replace(_authority(), destination_service="responses_api_v2"),
+        replace(_authority(), data_policy_url="https://openai.com/policies/usage-policies/"),
+        replace(_authority(), agent_runtime="codex_sdk"),
+        replace(_authority(), minimization_version="source_slices_v2"),
+        replace(_authority(), redaction_version="secret_scan_v2"),
+        replace(_authority(), maximum_duration_seconds=60),
+        replace(_authority(), cancellation_behavior="cancel_active_request"),
+        replace(_authority(), revocation_behavior="deny_active_request"),
+        replace(_authority(), cleanup_behavior="delete_all_unpinned_after_run"),
+    )
+    assert all(
+        build_egress_preview(slices, authority, local_only=False).manifest_digest != baseline
+        for authority in variants
+    )
+
+    invalid = (
+        replace(_authority(), revision="main\nother"),
+        replace(_authority(), data_policy_url="https://openai.com/privacy?token=secret"),
+        replace(_authority(), destination_deletion_supported=True),
+        replace(_authority(), maximum_duration_seconds=0),
+    )
+    for authority in invalid:
+        with pytest.raises(PrivacyError) as caught:
+            build_egress_preview(slices, authority, local_only=False)
         assert caught.value.code == "invalid_egress_authority"
 
 

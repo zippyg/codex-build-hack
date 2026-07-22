@@ -193,6 +193,22 @@ def test_callback_failure_is_typed_after_a_successful_call() -> None:
         captured.create(model="gpt", input="input")
 
 
+def test_callback_must_return_none_without_inspecting_the_returned_object() -> None:
+    class HostileReturn:
+        @property
+        def __await__(self) -> Any:
+            raise AssertionError("capture inspected a callback return value")
+
+    captured = CapturedResponses(
+        SyncResource(Response("gpt", "output", Usage(1, 1))),
+        callsite_id=CALLSITE_ID,
+        callsites=CALLSITES,
+        sink=lambda _: HostileReturn(),  # type: ignore[return-value]
+    )
+    with pytest.raises(CaptureCallbackError):
+        captured.create(model="gpt", input="input")
+
+
 def test_shape_capture_is_bounded_and_does_not_invoke_hostile_mapping_keys() -> None:
     class HostileKey:
         def __init__(self) -> None:

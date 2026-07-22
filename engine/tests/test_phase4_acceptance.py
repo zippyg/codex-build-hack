@@ -17,6 +17,7 @@ from scripts.phase4_acceptance import (
     result_digest,
     write_outputs,
     verify_tracked_outputs,
+    verify_remote_artifact_pins,
 )
 
 
@@ -67,29 +68,35 @@ def test_receipt_covers_every_stable_requirement_and_keeps_boundaries_unsupporte
     records = {record.suite_id: record for record in receipt.records}
     expected_passed = {
         "ARCH",
+        "BACKUP-DELETE",
+        "BOUND-SOURCE-CLEAN",
         "BUNDLE",
         "CAP-NODE",
         "CAP-NORMALIZE",
+        "DAEMON-INSPECT",
         "DISC-DYNAMIC",
         "DISC-GOLDEN",
         "DISC-PY",
         "DISC-TS",
         "EGRESS",
         "GIT-LOCAL",
+        "GIT-HTTPS",
+        "KEYSTORE-MACOS-NATIVE",
+        "KEYSTORE-PERSISTENT",
         "NONMUTATION",
         "OTLP-GRPC",
         "OTLP-HTTP",
         "OTLP-MAPPING",
         "PATH",
         "PRIV-CANARY",
+        "PRIV-DEL",
+        "REMOTE-ARTIFACT-PINS",
+        "REMOTE-IMAGE-PACKAGES",
         "TREE-SITTER-PINNED",
     }
     assert all(records[suite_id].status == "passed" for suite_id in expected_passed)
-    assert records["GIT-HTTPS"].status == "unsupported"
-    assert records["GIT-SSH-BROKER"].status == "unsupported"
-    assert records["KEYSTORE-PERSISTENT"].status == "unsupported"
-    assert records["BACKUP-DELETE"].status == "unsupported"
-    assert records["PRIV-DEL"].status == "unsupported"
+    assert records["GIT-HTTPS"].status == "passed"
+    assert records["GIT-SSH-BROKER"].status == "passed"
     assert records["CAP-PY"].status == "passed"
     assert records["WHEEL-CLEAN"].status == "passed"
     assert len({record.result_digest for record in receipt.records}) == len(
@@ -127,11 +134,15 @@ def test_outputs_round_trip_exact_receipt_and_support_matrix(
     assert matrix["receipt_id"] == receipt_value["receipt_id"]
     cells = {cell["cell_id"]: cell for cell in matrix["cells"]}
     assert cells["acquisition_local"]["state"] == "stable"
-    assert cells["acquisition_https"]["state"] == "unsupported"
-    assert cells["acquisition_ssh_broker"]["state"] == "unsupported"
+    assert cells["acquisition_https"]["state"] == "experimental"
+    assert cells["acquisition_https"]["platforms"] == ["macos-arm64-orbstack"]
+    assert cells["acquisition_ssh_broker"]["state"] == "experimental"
+    assert cells["acquisition_ssh_broker"]["platforms"] == ["macos-arm64-orbstack"]
     assert cells["python_runtime_capture"]["state"] == "stable"
     assert cells["node_runtime_capture"]["state"] == "stable"
-    assert cells["persistent_protected_storage"]["state"] == "unsupported"
+    assert cells["persistent_protected_storage"]["state"] == "stable"
+    assert cells["persistent_protected_storage"]["platforms"] == ["macos"]
+    assert cells["local_deletion"]["state"] == "stable"
 
 
 def test_receipt_identifier_changes_with_source_or_command_evidence() -> None:
@@ -172,10 +183,45 @@ def test_clean_checkout_and_preserved_local_diff_have_separate_protected_digests
     assert len(phase4_acceptance.PROTECTED_TRACKED_DIGEST) == 64
 
 
+def test_remote_artifact_evidence_matches_the_reviewed_rust_policy_and_package_lock() -> (
+    None
+):
+    assert phase4_acceptance.REMOTE_ARTIFACT_PINS["ssh_connect_digest"].startswith(
+        "sha256:"
+    )
+    assert phase4_acceptance.REMOTE_ARTIFACT_PINS["relay_digest"].startswith("sha256:")
+    assert phase4_acceptance.REMOTE_ARTIFACT_PINS[
+        "ssh_fixture_image_digest"
+    ].startswith("sha256:")
+    source = (
+        phase4_acceptance.RUST_ROOT
+        / "crates"
+        / "promptectomy-acquisition"
+        / "src"
+        / "remote.rs"
+    ).read_text(encoding="utf-8")
+    verify_remote_artifact_pins(source)
+    with pytest.raises(RuntimeError, match="disagree"):
+        verify_remote_artifact_pins(
+            source.replace(
+                phase4_acceptance.REMOTE_ARTIFACT_PINS["image_digest"],
+                "sha256:" + "0" * 64,
+                1,
+            )
+        )
+
+
 def test_receipt_staleness_boundary_covers_phase4_ci_and_line_endings() -> None:
     assert ".github/workflows/phase4.yml" in phase4_acceptance.BOUND_PATHS
+    assert ".github/workflows/rust.yml" in phase4_acceptance.BOUND_PATHS
     assert ".gitattributes" in phase4_acceptance.BOUND_PATHS
     assert "rust/crates/promptectomy-protected-store" in phase4_acceptance.BOUND_PATHS
+    assert "rust/crates/promptectomy-daemon" in phase4_acceptance.BOUND_PATHS
+    assert "rust/crates/promptectomy-cli" in phase4_acceptance.BOUND_PATHS
+    assert "rust/crates/promptectomy-ssh-agent-relay" in phase4_acceptance.BOUND_PATHS
+    assert ".gitignore" in phase4_acceptance.BOUND_PATHS
+    assert "rust/.gitignore" in phase4_acceptance.BOUND_PATHS
+    assert "rust/rust-toolchain.toml" in phase4_acceptance.BOUND_PATHS
 
 
 def test_tracked_output_verification_rejects_stale_bound_paths(
@@ -190,12 +236,34 @@ def test_tracked_output_verification_rejects_stale_bound_paths(
     write_outputs(receipt)
 
     class _Result:
-        def __init__(self, returncode: int) -> None:
+        def __init__(self, returncode: int, stdout: str = "") -> None:
             self.returncode = returncode
+            self.stdout = stdout
 
-    results = iter((_Result(0), _Result(1)))
+    results = iter((_Result(0), _Result(0), _Result(1)))
     monkeypatch.setattr(
         phase4_acceptance.subprocess, "run", lambda *args, **kwargs: next(results)
     )
     with pytest.raises(RuntimeError, match="stale"):
+        verify_tracked_outputs()
+
+
+def test_tracked_output_verification_rejects_dirty_bound_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    matrix_path = tmp_path / "matrix.json"
+    monkeypatch.setattr(phase4_acceptance, "RECEIPT_PATH", receipt_path)
+    monkeypatch.setattr(phase4_acceptance, "MATRIX_PATH", matrix_path)
+    write_outputs(build_receipt("a" * 40, _all_evidence()))
+
+    class _Result:
+        returncode = 0
+        stdout = " M rust/rust-toolchain.toml\n"
+
+    monkeypatch.setattr(
+        phase4_acceptance.subprocess, "run", lambda *args, **kwargs: _Result()
+    )
+    with pytest.raises(RuntimeError, match="dirty bound"):
         verify_tracked_outputs()

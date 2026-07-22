@@ -28,7 +28,7 @@ keyring = { version = "=3.6.3", default-features = false, features = ["apple-nat
 keyring = { version = "=3.6.3", default-features = false, features = ["windows-native"] }
 
 [target.'cfg(unix)'.dependencies]
-libc.workspace = true
+rustix = { version = "=1.1.4", default-features = false, features = ["fs", "process", "std"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -1,14 +1,17 @@
 use std::collections::BTreeSet;
+use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::digest::{digest_string, hex, sha256};
 use crate::path_policy::{
     insert_collision_key, may_contain_selected, normalize_filesystem_relative, selected,
 };
+use crate::remote::{RemoteGitAttestation, RemoteGitManifest};
 use crate::{
     ACQUISITION_PROTOCOL_VERSION, AcquisitionError, AcquisitionLimits, AcquisitionRequest,
     AcquisitionSource, LocalDirtyPolicy, SnapshotReference, SourceKind, read_regular_once,
@@ -31,6 +34,8 @@ pub(crate) struct CollectedMaterial {
     pub(crate) submodule_count: usize,
     pub(crate) lfs_pointer_count: usize,
     pub(crate) path_exclusions: Vec<String>,
+    pub(crate) remote_manifest: Option<RemoteGitManifest>,
+    pub(crate) remote_attestation: Option<RemoteGitAttestation>,
 }
 
 impl CollectedMaterial {
@@ -50,6 +55,8 @@ impl CollectedMaterial {
             submodule_count: 0,
             lfs_pointer_count: 0,
             path_exclusions: Vec::new(),
+            remote_manifest: None,
+            remote_attestation: None,
         }
     }
 }
@@ -72,13 +79,36 @@ pub struct SnapshotReceipt {
     pub tree_digest: String,
     pub tool_version: String,
     pub git_version: Option<String>,
+    pub remote_manifest_digest: Option<String>,
+    pub remote_attestation_digest: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct AcquiredSnapshot {
     pub reference: SnapshotReference,
     pub receipt: SnapshotReceipt,
-    pub snapshot_root: PathBuf,
+    snapshot_root: PathBuf,
+    pub remote_manifest: Option<RemoteGitManifest>,
+    pub remote_attestation: Option<RemoteGitAttestation>,
+}
+
+impl AcquiredSnapshot {
+    #[cfg(test)]
+    pub(crate) fn trusted_snapshot_root(&self) -> &Path {
+        &self.snapshot_root
+    }
+}
+
+impl fmt::Debug for AcquiredSnapshot {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AcquiredSnapshot")
+            .field("reference", &self.reference)
+            .field("receipt", &self.receipt)
+            .field("remote_manifest", &self.remote_manifest)
+            .field("remote_attestation", &self.remote_attestation)
+            .finish_non_exhaustive()
+    }
 }
 
 pub(crate) fn prepare_storage_root(root: &Path) -> Result<(), AcquisitionError> {
@@ -130,16 +160,18 @@ pub(crate) fn collect_local(
     }
 
     let first = scan_local(source, selected_roots, limits)?;
-    let second = scan_local(source, selected_roots, limits)?;
-    if first != second {
-        return Err(AcquisitionError::SourceChanged);
-    }
     if first.is_empty() {
         return Err(AcquisitionError::EmptySelection);
     }
-    let tree_digest = tree_digest(&first);
+    let first_digest = tree_digest(&first);
+    drop(first);
+    let second = scan_local(source, selected_roots, limits)?;
+    let tree_digest = tree_digest(&second);
+    if tree_digest != first_digest {
+        return Err(AcquisitionError::SourceChanged);
+    }
     let mut material = CollectedMaterial::new(
-        first,
+        second,
         "local://<redacted>".to_owned(),
         tree_digest.clone(),
         tree_digest,
@@ -231,23 +263,23 @@ pub(crate) fn add_quota(
 }
 
 pub(crate) fn tree_digest(files: &[MaterializedFile]) -> String {
-    let mut bytes = Vec::new();
+    let mut digest = Sha256::new();
     for file in files {
-        bytes.extend_from_slice(
-            &u64::try_from(file.path.len())
+        digest.update(
+            u64::try_from(file.path.len())
                 .expect("path limit fits u64")
                 .to_be_bytes(),
         );
-        bytes.extend_from_slice(file.path.as_bytes());
-        bytes.push(u8::from(file.executable));
-        bytes.extend_from_slice(
-            &u64::try_from(file.bytes.len())
+        digest.update(file.path.as_bytes());
+        digest.update([u8::from(file.executable)]);
+        digest.update(
+            u64::try_from(file.bytes.len())
                 .expect("byte quota fits u64")
                 .to_be_bytes(),
         );
-        bytes.extend_from_slice(&sha256(&file.bytes));
+        digest.update(sha256(&file.bytes));
     }
-    digest_string(&bytes)
+    format!("sha256:{}", hex(&digest.finalize()))
 }
 
 pub(crate) fn publish(
@@ -263,17 +295,37 @@ pub(crate) fn publish(
         return Err(AcquisitionError::EmptySelection);
     }
     let tree_digest = tree_digest(&material.files);
+    let remote_manifest_bytes = material
+        .remote_manifest
+        .as_ref()
+        .map(serde_jcs::to_vec)
+        .transpose()
+        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
+    let remote_attestation_bytes = material
+        .remote_attestation
+        .as_ref()
+        .map(serde_jcs::to_vec)
+        .transpose()
+        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
     let (receipt, reference, receipt_bytes, receipt_hex) =
         snapshot_identity(request, selected_roots, &material, &tree_digest)?;
 
     let snapshots_root = storage_root.join("snapshots");
     let final_root = snapshots_root.join(&receipt_hex);
     if final_root.exists() {
-        verify_existing(&final_root, &receipt_bytes, &tree_digest)?;
+        verify_existing(
+            &final_root,
+            &receipt_bytes,
+            &tree_digest,
+            remote_manifest_bytes.as_deref(),
+            remote_attestation_bytes.as_deref(),
+        )?;
         return Ok(AcquiredSnapshot {
             reference,
             receipt,
             snapshot_root: final_root,
+            remote_manifest: material.remote_manifest,
+            remote_attestation: material.remote_attestation,
         });
     }
 
@@ -293,6 +345,16 @@ pub(crate) fn publish(
         .and_then(|()| receipt_file.sync_all())
         .map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
     set_snapshot_file(&receipt_path, false)?;
+    write_optional_artifact(
+        &staging.path,
+        "remote-manifest.json",
+        remote_manifest_bytes.as_deref(),
+    )?;
+    write_optional_artifact(
+        &staging.path,
+        "remote-attestation.json",
+        remote_attestation_bytes.as_deref(),
+    )?;
     make_tree_read_only(&staging_tree)?;
 
     match fs::rename(&staging.path, &final_root) {
@@ -301,7 +363,13 @@ pub(crate) fn publish(
             set_read_only_directory(&final_root)?;
         }
         Err(_) if final_root.exists() => {
-            verify_existing(&final_root, &receipt_bytes, &tree_digest)?;
+            verify_existing(
+                &final_root,
+                &receipt_bytes,
+                &tree_digest,
+                remote_manifest_bytes.as_deref(),
+                remote_attestation_bytes.as_deref(),
+            )?;
         }
         Err(_) => return Err(AcquisitionError::SnapshotPublishFailed),
     }
@@ -309,6 +377,8 @@ pub(crate) fn publish(
         reference,
         receipt,
         snapshot_root: final_root,
+        remote_manifest: material.remote_manifest,
+        remote_attestation: material.remote_attestation,
     })
 }
 
@@ -345,6 +415,16 @@ fn snapshot_identity(
         tree_digest: tree_digest.to_owned(),
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         git_version: material.git_version.clone(),
+        remote_manifest_digest: material
+            .remote_manifest
+            .as_ref()
+            .map(|manifest| manifest.manifest_digest.clone()),
+        remote_attestation_digest: material.remote_attestation.as_ref().map(|attestation| {
+            let encoded = serde_jcs::to_vec(attestation).expect("remote attestation serializes");
+            let mut bytes = b"remote-git-attestation\0".to_vec();
+            bytes.extend_from_slice(&encoded);
+            digest_string(&bytes)
+        }),
     };
     let receipt_bytes =
         serde_json::to_vec(&receipt).map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
@@ -385,10 +465,33 @@ fn write_snapshot_files(
     Ok(())
 }
 
+fn write_optional_artifact(
+    root: &Path,
+    name: &str,
+    bytes: Option<&[u8]>,
+) -> Result<(), AcquisitionError> {
+    let Some(bytes) = bytes else {
+        return Ok(());
+    };
+    let path = root.join(name);
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
+    output
+        .write_all(bytes)
+        .and_then(|()| output.sync_all())
+        .map_err(|_| AcquisitionError::SnapshotPublishFailed)?;
+    set_snapshot_file(&path, false)
+}
+
 fn verify_existing(
     root: &Path,
     expected_receipt: &[u8],
     expected_tree_digest: &str,
+    expected_remote_manifest: Option<&[u8]>,
+    expected_remote_attestation: Option<&[u8]>,
 ) -> Result<(), AcquisitionError> {
     let metadata =
         fs::symlink_metadata(root).map_err(|_| AcquisitionError::SnapshotIntegrityFailed)?;
@@ -400,6 +503,8 @@ fn verify_existing(
     if receipt != expected_receipt {
         return Err(AcquisitionError::SnapshotIntegrityFailed);
     }
+    verify_optional_artifact(root, "remote-manifest.json", expected_remote_manifest)?;
+    verify_optional_artifact(root, "remote-attestation.json", expected_remote_attestation)?;
     let limits = AcquisitionLimits {
         max_files: 1_000_000,
         max_total_bytes: u64::MAX / 2,
@@ -413,6 +518,25 @@ fn verify_existing(
     let actual = scan_local_tree(&root.join("tree"), &limits)?;
     if tree_digest(&actual) != expected_tree_digest {
         return Err(AcquisitionError::SnapshotIntegrityFailed);
+    }
+    Ok(())
+}
+
+fn verify_optional_artifact(
+    root: &Path,
+    name: &str,
+    expected: Option<&[u8]>,
+) -> Result<(), AcquisitionError> {
+    let path = root.join(name);
+    match expected {
+        Some(expected) => {
+            let actual = fs::read(path).map_err(|_| AcquisitionError::SnapshotIntegrityFailed)?;
+            if actual != expected {
+                return Err(AcquisitionError::SnapshotIntegrityFailed);
+            }
+        }
+        None if path.exists() => return Err(AcquisitionError::SnapshotIntegrityFailed),
+        None => {}
     }
     Ok(())
 }

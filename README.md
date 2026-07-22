@@ -24,12 +24,14 @@ The current pre-v1 branch provides a deliberately narrow, safety-first foundatio
 - owner-only SQLite state and a content-addressed artifact store with transactional events, crash reconciliation, tamper detection, and frozen reports;
 - a capability-protected local API contract with bounded bodies, strict Host and Origin checks, idempotency, and event cursors;
 - a Rust trusted core, private local daemon, and canonical state/report CLI with typed exits, restart-safe migration, and bounded out-of-process adapter supervision;
+- immutable local, tar, source-bundle, and reviewed public HTTPS snapshots with strict path, quota, credential, egress, cancellation, and cleanup boundaries;
+- deterministic Python and TypeScript/JavaScript Responses discovery, metadata-only Python and Node capture, and bounded OTLP/OpenInference evidence import;
 - safe JSON and Markdown run reports;
 - a Next.js dashboard that replays the winning hackathon result.
 
 Inspect, Audit, and Draft do not execute target repository code. Drafts are data until a later isolated evaluation accepts them. The legacy hackathon mutation and hot-swap commands fail closed.
 
-The safe Python reference remains the current repository inspection and audit path. The Rust daemon and CLI now own the trusted local state and report boundary, including Python v2 import. Rust repository inspection still returns a typed unsupported result until the Phase 4 acquisition and language adapters are connected. Remote acquisition, evaluation, TUI, desktop GUI, and explicit branch-based Apply are not finished.
+The Rust daemon and CLI now own trusted source acquisition and return redacted, content-bound snapshot receipts. The safe Python reference remains the language-level inspection and audit path while the adapters move behind the Rust process boundary. Public HTTPS acquisition requires the reviewed macOS arm64 OrbStack backend. Brokered SSH acquisition is experimental on that same backend: a filtered sidecar exposes only one selected agent identity, pins the destination and host key, and has controlled fixture coverage. It has not yet been accepted against a real private hosting account. Isolated evaluation, TUI, desktop GUI, and explicit branch-based Apply are not finished.
 
 ## Quickstart
 
@@ -96,6 +98,8 @@ The demonstrated pipeline reduced estimated model cost by 44.79 percent. Agreeme
 
 ```text
 engine/                  Python reference, CLI, executor, and tests
+rust/                    trusted control plane, daemon, CLI, acquisition, and protocols
+adapters/node/           metadata-only Node Responses capture adapter
 ui/                      Next.js recorded dashboard
 docs/adr/                accepted architecture decisions
 docs/architecture/       design, privacy, security, and evidence
@@ -120,6 +124,12 @@ bun install --frozen-lockfile
 bun run typecheck
 bun run build
 bunx playwright test
+
+cd ../adapters/node
+bun install --frozen-lockfile --ignore-scripts
+bun run typecheck
+bun test
+bun run package:check
 ```
 
-Contributor guidance lives in [AGENTS.md](AGENTS.md). The repository remains private while stable v1 and its license are finalized. No open-source license has been granted yet.
+Contributor guidance lives in [AGENTS.md](AGENTS.md). The repository is public pre-v1, but its release name and license are still pending explicit approval. No open-source license has been granted yet.

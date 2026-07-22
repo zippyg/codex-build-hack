@@ -1604,6 +1604,9 @@ dependencies = [
 name = "promptectomy-acquisition"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "promptectomy-ssh-agent-relay",
+ "rustix",
  "serde",
  "serde_jcs",
  "serde_json",
@@ -1617,6 +1620,7 @@ name = "promptectomy-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "promptectomy-acquisition",
  "promptectomy-contracts",
  "promptectomy-core",
  "promptectomy-daemon",
@@ -1667,6 +1671,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "promptectomy-acquisition",
  "promptectomy-contracts",
  "promptectomy-core",
  "promptectomy-fixtures",
@@ -1677,6 +1682,17 @@ dependencies = [
  "thiserror",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "promptectomy-egress-proxy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1695,7 +1711,7 @@ dependencies = [
  "base64",
  "getrandom 0.4.3",
  "keyring",
- "libc",
+ "rustix",
  "serde",
  "serde_jcs",
  "serde_json",
@@ -1717,6 +1733,32 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "promptectomy-remote-git-runner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "promptectomy-ssh-agent-relay"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]

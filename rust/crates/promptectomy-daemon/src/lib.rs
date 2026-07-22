@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -8,7 +9,10 @@ use std::collections::VecDeque;
 #[cfg(unix)]
 use std::convert::Infallible;
 #[cfg(unix)]
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 #[cfg(unix)]
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -31,7 +35,12 @@ use hyper::{Method, Request, Response, StatusCode};
 #[cfg(unix)]
 use hyper_util::rt::TokioIo;
 #[cfg(unix)]
-use promptectomy_contracts::SCHEMA_SHA256;
+use promptectomy_acquisition::{
+    Acquirer, AcquisitionError, AcquisitionLimits, AcquisitionRequest, AcquisitionSource,
+    ArchiveFormat, LocalDirtyPolicy, OrbstackPublicGitBackend,
+};
+#[cfg(unix)]
+use promptectomy_contracts::{SCHEMA_SHA256, canonical_json};
 use promptectomy_contracts::{SCHEMA_VERSION, artifact_id};
 use promptectomy_core::{CoreError, CoreStore};
 use serde::{Deserialize, Serialize};
@@ -46,14 +55,17 @@ use tokio::sync::{Mutex, Semaphore};
 #[cfg(unix)]
 use uuid::Uuid;
 
-pub const PROTOCOL_VERSION: &str = "phase3-daemon-1";
+pub const PROTOCOL_VERSION: &str = "phase4-daemon-1";
 pub const DEFAULT_HOST: &str = "promptectomy.local";
 pub const MAX_BODY_BYTES: usize = 2_000_000;
 pub const RATE_WINDOW: Duration = Duration::from_secs(60);
 pub const RATE_LIMIT: usize = 120;
 pub const MAX_CONNECTIONS: usize = 64;
+pub const MAX_INSPECTIONS: usize = 2;
 pub const MAX_METADATA_BYTES: u64 = 16_384;
-pub const CONNECTION_DEADLINE: Duration = Duration::from_secs(10);
+pub const CONNECTION_DEADLINE: Duration = Duration::from_secs(30);
+pub const INSPECT_DEADLINE: Duration = Duration::from_secs(9);
+pub const REMOTE_INSPECT_OVERHEAD_SECONDS: u64 = 20;
 #[cfg(unix)]
 const MAX_SOCKET_PATH_BYTES: usize = 95;
 pub const DEFAULT_ALLOWED_ORIGINS: [&str; 4] = [
@@ -105,9 +117,69 @@ pub struct ClientResponse {
     pub envelope: ApiEnvelope,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RepositorySource {
+    Local { path: String },
+    ArchiveTar { path: String },
+    Bundle { path: String },
+    Https { url: String, revision: String },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RepositoryInspectLimits {
+    pub max_files: usize,
+    pub max_total_bytes: u64,
+    pub max_file_bytes: u64,
+    pub max_path_bytes: usize,
+    pub max_archive_bytes: u64,
+    pub max_remote_work_bytes: u64,
+    pub max_git_output_bytes: usize,
+    pub max_git_seconds: u64,
+}
+
+impl Default for RepositoryInspectLimits {
+    fn default() -> Self {
+        let limits = AcquisitionLimits::default();
+        Self {
+            max_files: limits.max_files,
+            max_total_bytes: limits.max_total_bytes,
+            max_file_bytes: limits.max_file_bytes,
+            max_path_bytes: limits.max_path_bytes,
+            max_archive_bytes: limits.max_archive_bytes,
+            max_remote_work_bytes: limits.max_remote_work_bytes,
+            max_git_output_bytes: limits.max_git_output_bytes,
+            max_git_seconds: 6,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RepositoryInspectRequest {
+    pub source: RepositorySource,
+    pub selected_roots: Vec<String>,
+    pub limits: RepositoryInspectLimits,
+}
+
+#[derive(Clone)]
 pub struct DaemonConfig {
     root: PathBuf,
+    public_git_backend: Option<OrbstackPublicGitBackend>,
+}
+
+impl fmt::Debug for DaemonConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DaemonConfig")
+            .field("root", &"<private>")
+            .field(
+                "public_git_backend_configured",
+                &self.public_git_backend.is_some(),
+            )
+            .finish()
+    }
 }
 
 impl DaemonConfig {
@@ -115,7 +187,14 @@ impl DaemonConfig {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: normalize_root(root.into()),
+            public_git_backend: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_public_git_backend(mut self, backend: OrbstackPublicGitBackend) -> Self {
+        self.public_git_backend = Some(backend);
+        self
     }
 
     #[must_use]
@@ -131,6 +210,11 @@ impl DaemonConfig {
     #[must_use]
     pub fn state_path(&self) -> PathBuf {
         self.root.join("state")
+    }
+
+    #[must_use]
+    pub fn acquisition_path(&self) -> PathBuf {
+        self.root.join("acquisition")
     }
 }
 
@@ -221,6 +305,19 @@ struct DaemonState {
     rate: Mutex<RateState>,
     state_path: PathBuf,
     state_owner: u32,
+    acquisition_path: PathBuf,
+    public_git_backend: Option<OrbstackPublicGitBackend>,
+    inspections: Arc<Semaphore>,
+}
+
+#[cfg(unix)]
+struct CancellationGuard(Arc<AtomicBool>);
+
+#[cfg(unix)]
+impl Drop for CancellationGuard {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Release);
+    }
 }
 
 #[cfg(unix)]
@@ -260,6 +357,8 @@ impl DaemonState {
         store: CoreStore,
         state_path: PathBuf,
         state_owner: u32,
+        acquisition_path: PathBuf,
+        public_git_backend: Option<OrbstackPublicGitBackend>,
     ) -> Self {
         Self {
             metadata,
@@ -269,6 +368,9 @@ impl DaemonState {
             }),
             state_path,
             state_owner,
+            acquisition_path,
+            public_git_backend,
+            inspections: Arc::new(Semaphore::new(MAX_INSPECTIONS)),
         }
     }
 
@@ -356,7 +458,14 @@ pub async fn serve(config: DaemonConfig) -> Result<(), DaemonError> {
     write_private_metadata(&config.metadata_path(), &metadata)?;
     let state_path = config.state_path();
     let state_owner = private_directory_owner(&state_path)?;
-    let state = Arc::new(DaemonState::new(metadata, store, state_path, state_owner));
+    let state = Arc::new(DaemonState::new(
+        metadata,
+        store,
+        state_path,
+        state_owner,
+        config.acquisition_path(),
+        config.public_git_backend,
+    ));
     let permits = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
         let (stream, _) = listener.accept().await?;
@@ -466,7 +575,7 @@ pub fn unavailable(code: &str, next_action: &str) -> ApiEnvelope {
         code,
         "unsupported",
         false,
-        "This command is unavailable in the current Phase 3 Rust slice.",
+        "This command is unavailable in the current build.",
         next_action,
     )
 }
@@ -717,7 +826,7 @@ fn body_too_large() -> ApiEnvelope {
         "input",
         false,
         "The request body is too large.",
-        "Send a bounded Phase 3 request.",
+        "Send a request within the documented local API bound.",
     )
 }
 
@@ -762,6 +871,7 @@ async fn route(
                     "schema_version": SCHEMA_VERSION,
                     "schema_sha256": SCHEMA_SHA256,
                     "protocol_version": PROTOCOL_VERSION,
+                    "capabilities": capabilities(state.public_git_backend.is_some()),
                 })),
             )
         }
@@ -780,7 +890,312 @@ async fn route(
             }
             garbage_collect(state).await
         }
+        ("POST", "/v2/repositories/inspect") => {
+            if query.is_some() {
+                return invalid_query();
+            }
+            inspect_repository(body, state).await
+        }
         _ => route_run(method, path, query, body, state).await,
+    }
+}
+
+#[cfg(unix)]
+fn capabilities(public_https: bool) -> Value {
+    json!({
+        "acquisition": {
+            "local_path": true,
+            "archive_tar": true,
+            "bundle": true,
+            "public_https_orbstack": public_https,
+            "ssh_brokered": false
+        },
+        "analysis": {
+            "python_parser": false,
+            "typescript_parser": false,
+            "capture": false
+        },
+        "protected_storage": {
+            "key_store": false
+        }
+    })
+}
+
+#[cfg(unix)]
+async fn inspect_repository(body: &[u8], state: Arc<DaemonState>) -> (u16, ApiEnvelope) {
+    let request: RepositoryInspectRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(_) => {
+            return (
+                400,
+                error(
+                    "invalid_inspect_request",
+                    "input",
+                    false,
+                    "The repository inspection request is invalid.",
+                    "Send the documented strict repository inspection schema.",
+                ),
+            );
+        }
+    };
+    let acquisition = match acquisition_request(&request) {
+        Ok(request) => request,
+        Err(acquisition_error) => return acquisition_error_response(acquisition_error),
+    };
+    let inspect_deadline = inspection_deadline(&request);
+    let Some(permit) = inspection_permit(&state.inspections) else {
+        return (
+            429,
+            error(
+                "inspection_capacity_reached",
+                "acquisition",
+                true,
+                "The bounded repository inspection capacity is in use.",
+                "Retry after an active inspection finishes cleanup.",
+            ),
+        );
+    };
+    let storage_root = state.acquisition_path.clone();
+    let backend = state.public_git_backend.clone();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let _cancellation_guard = CancellationGuard(Arc::clone(&cancelled));
+    let task_cancelled = Arc::clone(&cancelled);
+    let mut task = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let mut acquirer = Acquirer::new(storage_root)?;
+        if let Some(backend) = backend {
+            acquirer = acquirer.with_public_git_backend(backend);
+        }
+        acquirer.acquire_cancelable(&acquisition, &task_cancelled)
+    });
+    let result = match tokio::time::timeout(inspect_deadline, &mut task).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => {
+            return (
+                500,
+                error(
+                    "inspection_worker_failed",
+                    "internal",
+                    false,
+                    "The isolated inspection worker failed.",
+                    "Retry after checking the local runtime and private state.",
+                ),
+            );
+        }
+        Err(_) => {
+            cancelled.store(true, Ordering::Release);
+            return (
+                408,
+                error(
+                    "inspection_timed_out",
+                    "cancelled",
+                    true,
+                    "Repository inspection exceeded its local deadline and was cancelled.",
+                    "Retry with a smaller selected root or tighter source archive.",
+                ),
+            );
+        }
+    };
+    match result {
+        Ok(snapshot) => (
+            200,
+            ok(json!({
+                "snapshot_reference": snapshot.reference,
+                "snapshot_receipt": snapshot.receipt
+            })),
+        ),
+        Err(acquisition_error) => acquisition_error_response(acquisition_error),
+    }
+}
+
+#[cfg(unix)]
+fn inspection_deadline(request: &RepositoryInspectRequest) -> Duration {
+    match &request.source {
+        RepositorySource::Https { .. } => Duration::from_secs(
+            request
+                .limits
+                .max_git_seconds
+                .saturating_add(REMOTE_INSPECT_OVERHEAD_SECONDS),
+        ),
+        RepositorySource::Local { .. }
+        | RepositorySource::ArchiveTar { .. }
+        | RepositorySource::Bundle { .. } => INSPECT_DEADLINE,
+    }
+}
+
+#[cfg(unix)]
+fn inspection_permit(inspections: &Arc<Semaphore>) -> Option<tokio::sync::OwnedSemaphorePermit> {
+    Arc::clone(inspections).try_acquire_owned().ok()
+}
+
+#[cfg(unix)]
+fn acquisition_request(
+    request: &RepositoryInspectRequest,
+) -> Result<AcquisitionRequest, AcquisitionError> {
+    validate_inspect_request(request)?;
+    let source = match &request.source {
+        RepositorySource::Local { path } => AcquisitionSource::Local {
+            path: PathBuf::from(path),
+            dirty_policy: LocalDirtyPolicy::IncludeTrackedAndUntracked,
+        },
+        RepositorySource::ArchiveTar { path } => AcquisitionSource::Archive {
+            path: PathBuf::from(path),
+            format: ArchiveFormat::Tar,
+        },
+        RepositorySource::Bundle { path } => AcquisitionSource::Bundle {
+            path: PathBuf::from(path),
+        },
+        RepositorySource::Https { url, revision } => AcquisitionSource::Https {
+            url: url.clone(),
+            revision: revision.clone(),
+        },
+    };
+    let canonical = canonical_json(
+        &serde_json::to_value(request).map_err(|_| AcquisitionError::InvalidAuthority)?,
+    )
+    .map_err(|_| AcquisitionError::InvalidAuthority)?;
+    let authority_digest = artifact_id(&canonical);
+    let authority_id = format!(
+        "auth_{}",
+        authority_digest
+            .strip_prefix("sha256:")
+            .expect("artifact IDs have a fixed prefix")
+    );
+    Ok(AcquisitionRequest {
+        source,
+        authority_id,
+        authority_digest,
+        selected_roots: request.selected_roots.clone(),
+        limits: AcquisitionLimits {
+            max_files: request.limits.max_files,
+            max_total_bytes: request.limits.max_total_bytes,
+            max_file_bytes: request.limits.max_file_bytes,
+            max_path_bytes: request.limits.max_path_bytes,
+            max_archive_bytes: request.limits.max_archive_bytes,
+            max_remote_work_bytes: request.limits.max_remote_work_bytes,
+            max_git_output_bytes: request.limits.max_git_output_bytes,
+            max_git_seconds: request.limits.max_git_seconds,
+        },
+    })
+}
+
+#[cfg(unix)]
+fn validate_inspect_request(request: &RepositoryInspectRequest) -> Result<(), AcquisitionError> {
+    let limits = &request.limits;
+    if request.selected_roots.len() > 64
+        || request
+            .selected_roots
+            .iter()
+            .map(String::len)
+            .sum::<usize>()
+            > 16_384
+        || limits.max_files == 0
+        || limits.max_files > 100_000
+        || limits.max_total_bytes == 0
+        || limits.max_total_bytes > 64 * 1024 * 1024
+        || limits.max_file_bytes == 0
+        || limits.max_file_bytes > 16 * 1024 * 1024
+        || limits.max_file_bytes > limits.max_total_bytes
+        || limits.max_path_bytes == 0
+        || limits.max_path_bytes > 1024
+        || limits.max_archive_bytes == 0
+        || limits.max_archive_bytes > 64 * 1024 * 1024
+        || limits.max_remote_work_bytes < limits.max_total_bytes
+        || limits.max_remote_work_bytes > 256 * 1024 * 1024
+        || limits.max_git_output_bytes == 0
+        || limits.max_git_output_bytes > 4 * 1024 * 1024
+        || limits.max_git_seconds == 0
+        || limits.max_git_seconds > 6
+    {
+        return Err(AcquisitionError::InvalidLimits);
+    }
+    match &request.source {
+        RepositorySource::Local { path }
+        | RepositorySource::ArchiveTar { path }
+        | RepositorySource::Bundle { path } => {
+            if path.len() > 4096 || !Path::new(path).is_absolute() {
+                return Err(AcquisitionError::InvalidSourcePath);
+            }
+        }
+        RepositorySource::Https { url, revision } => {
+            if url.len() > 2048 || revision.len() > 200 {
+                return Err(AcquisitionError::LocatorDenied);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn acquisition_error_response(acquisition_error: AcquisitionError) -> (u16, ApiEnvelope) {
+    use AcquisitionError::{
+        Cancelled, GitPlatformUnsupported, InvalidRemoteAttestation, RemoteGitUnavailable,
+        RemoteRuntimeUnavailable, SnapshotIntegrityFailed, SnapshotPublishFailed,
+        SshBrokerRelayUnavailable, SshBrokerUnavailable, StoragePermissionUnsupported,
+        UnsafeStorageRoot,
+    };
+
+    match acquisition_error {
+        Cancelled => (
+            409,
+            error(
+                "inspection_cancelled",
+                "cancelled",
+                true,
+                "Repository inspection was cancelled.",
+                "Retry when the local acquisition boundary is available.",
+            ),
+        ),
+        RemoteGitUnavailable | RemoteRuntimeUnavailable | GitPlatformUnsupported => (
+            503,
+            error(
+                "acquisition_backend_unavailable",
+                "acquisition",
+                true,
+                "The reviewed remote acquisition backend is unavailable.",
+                "Configure the exact reviewed OrbStack backend or use a local, tar, or bundle source.",
+            ),
+        ),
+        SshBrokerUnavailable | SshBrokerRelayUnavailable => (
+            501,
+            error(
+                "ssh_acquisition_unavailable",
+                "unsupported",
+                false,
+                "Brokered SSH acquisition is not available in this build.",
+                "Use public HTTPS or provide a local, tar, or bundle source.",
+            ),
+        ),
+        UnsafeStorageRoot | StoragePermissionUnsupported | SnapshotPublishFailed => (
+            500,
+            error(
+                "snapshot_storage_unavailable",
+                "storage",
+                false,
+                "Private snapshot storage is unavailable.",
+                "Repair the owner-only daemon directory before retrying.",
+            ),
+        ),
+        InvalidRemoteAttestation | SnapshotIntegrityFailed => (
+            500,
+            error(
+                "acquisition_integrity_failed",
+                "integrity",
+                false,
+                "Repository acquisition failed its integrity checks.",
+                "Do not use the snapshot. Review the local runtime before retrying.",
+            ),
+        ),
+        _ => (
+            400,
+            error(
+                "invalid_acquisition_request",
+                "acquisition",
+                false,
+                "The repository source or acquisition limits are not accepted.",
+                "Use an absolute supported source and bounded selected roots.",
+            ),
+        ),
     }
 }
 
@@ -843,8 +1258,8 @@ async fn route_run(
                 "endpoint_unavailable",
                 "unsupported",
                 false,
-                "The requested endpoint is unavailable in Phase 3.",
-                "Use doctor, status, watch, report, cancel, daemon, or gc.",
+                "The requested endpoint is unavailable in this build.",
+                "Use doctor, inspect, status, watch, report, cancel, daemon, or gc.",
             ),
         );
     }
@@ -884,8 +1299,8 @@ async fn route_run(
                 "endpoint_unavailable",
                 "unsupported",
                 false,
-                "The requested endpoint is unavailable in Phase 3.",
-                "Use doctor, status, watch, report, cancel, daemon, or gc.",
+                "The requested endpoint is unavailable in this build.",
+                "Use doctor, inspect, status, watch, report, cancel, daemon, or gc.",
             ),
         ),
     }
@@ -1809,6 +2224,243 @@ mod tests {
             401
         );
         handle.abort();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn repository_inspect_is_strict_bounded_and_redacted() {
+        let daemon_root = tempfile::tempdir().unwrap();
+        let source_root = tempfile::tempdir().unwrap();
+        let canary = "private-source-canary-7f31";
+        fs::write(source_root.path().join("main.py"), canary).unwrap();
+        let config = DaemonConfig::new(daemon_root.path());
+        let (handle, metadata) = start_daemon(&config).await;
+        let body = json!(RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: source_root.path().to_string_lossy().into_owned(),
+            },
+            selected_roots: vec!["main.py".to_owned()],
+            limits: RepositoryInspectLimits::default(),
+        });
+
+        let inspected = request(&metadata, "POST", "/v2/repositories/inspect", Some(&body))
+            .await
+            .unwrap();
+        assert_eq!(inspected.status, 200);
+        let data = inspected.envelope.data.unwrap();
+        assert_eq!(data["snapshot_receipt"]["file_count"], 1);
+        assert_eq!(
+            data["snapshot_reference"]["redacted_locator"],
+            "local://<redacted>"
+        );
+        let encoded = serde_json::to_string(&data).unwrap();
+        assert!(!encoded.contains(canary));
+        assert!(!encoded.contains(&source_root.path().to_string_lossy().into_owned()));
+        assert!(config.acquisition_path().join("snapshots").is_dir());
+
+        let mut unknown = body.clone();
+        unknown["unexpected"] = json!(true);
+        let rejected = request(
+            &metadata,
+            "POST",
+            "/v2/repositories/inspect",
+            Some(&unknown),
+        )
+        .await
+        .unwrap();
+        assert_eq!(rejected.status, 400);
+        assert_eq!(
+            rejected.envelope.error.unwrap().code,
+            "invalid_inspect_request"
+        );
+
+        let relative = json!(RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: "relative/source".to_owned(),
+            },
+            selected_roots: Vec::new(),
+            limits: RepositoryInspectLimits::default(),
+        });
+        let rejected = request(
+            &metadata,
+            "POST",
+            "/v2/repositories/inspect",
+            Some(&relative),
+        )
+        .await
+        .unwrap();
+        assert_eq!(rejected.status, 400);
+        assert_eq!(
+            rejected.envelope.error.unwrap().code,
+            "invalid_acquisition_request"
+        );
+        handle.abort();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn public_https_requires_an_exact_configured_backend() {
+        let root = tempfile::tempdir().unwrap();
+        let config = DaemonConfig::new(root.path());
+        let (handle, metadata) = start_daemon(&config).await;
+        let body = json!(RepositoryInspectRequest {
+            source: RepositorySource::Https {
+                url: "https://github.com/openai/openai-python.git".to_owned(),
+                revision: "main".to_owned(),
+            },
+            selected_roots: vec!["README.md".to_owned()],
+            limits: RepositoryInspectLimits::default(),
+        });
+        let response = request(&metadata, "POST", "/v2/repositories/inspect", Some(&body))
+            .await
+            .unwrap();
+        assert_eq!(response.status, 503);
+        assert_eq!(
+            response.envelope.error.unwrap().code,
+            "acquisition_backend_unavailable"
+        );
+        let health = request(&metadata, "GET", "/v2/health", None).await.unwrap();
+        assert_eq!(
+            health.envelope.data.unwrap()["capabilities"]["acquisition"]["public_https_orbstack"],
+            false
+        );
+        handle.abort();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn inspection_capacity_blocks_a_third_worker_and_config_debug_is_redacted() {
+        use std::sync::Barrier;
+
+        let inspections = Arc::new(Semaphore::new(MAX_INSPECTIONS));
+        let started = Arc::new(Barrier::new(MAX_INSPECTIONS + 1));
+        let finish = Arc::new(Barrier::new(MAX_INSPECTIONS + 1));
+        let mut workers = Vec::new();
+        for _ in 0..MAX_INSPECTIONS {
+            let permit = inspection_permit(&inspections).unwrap();
+            let started = Arc::clone(&started);
+            let finish = Arc::clone(&finish);
+            workers.push(tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                started.wait();
+                finish.wait();
+            }));
+        }
+        started.wait();
+        assert!(inspection_permit(&inspections).is_none());
+        finish.wait();
+        for worker in workers {
+            worker.await.unwrap();
+        }
+        let third = inspection_permit(&inspections).unwrap();
+        drop(third);
+        assert_eq!(inspections.available_permits(), MAX_INSPECTIONS);
+
+        let config = DaemonConfig::new("/private/root-canary").with_public_git_backend(
+            OrbstackPublicGitBackend::reviewed("/private/docker-canary").unwrap(),
+        );
+        let debug = format!("{config:?}");
+        assert!(!debug.contains("root-canary"));
+        assert!(!debug.contains("docker-canary"));
+        assert!(debug.contains("public_git_backend_configured: true"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inspection_authority_identity_is_bound_one_to_one_to_the_request() {
+        let first = RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: "/private/source-a".to_owned(),
+            },
+            selected_roots: vec!["src".to_owned()],
+            limits: RepositoryInspectLimits::default(),
+        };
+        let second = RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: "/private/source-b".to_owned(),
+            },
+            selected_roots: vec!["src".to_owned()],
+            limits: RepositoryInspectLimits::default(),
+        };
+        let first = acquisition_request(&first).unwrap();
+        let second = acquisition_request(&second).unwrap();
+        assert_ne!(first.authority_id, second.authority_id);
+        assert_ne!(first.authority_digest, second.authority_digest);
+        assert_eq!(
+            first.authority_id.strip_prefix("auth_"),
+            first.authority_digest.strip_prefix("sha256:")
+        );
+        assert_eq!(
+            second.authority_id.strip_prefix("auth_"),
+            second.authority_digest.strip_prefix("sha256:")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inspection_limits_bound_two_concurrent_materializations() {
+        let limits = RepositoryInspectLimits::default();
+        assert_eq!(limits.max_total_bytes, 64 * 1024 * 1024);
+        assert_eq!(limits.max_file_bytes, 16 * 1024 * 1024);
+        assert_eq!(limits.max_archive_bytes, 64 * 1024 * 1024);
+        assert_eq!(limits.max_remote_work_bytes, 256 * 1024 * 1024);
+        let request = |limits| RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: "/private/source".to_owned(),
+            },
+            selected_roots: Vec::new(),
+            limits,
+        };
+        validate_inspect_request(&request(limits.clone())).expect("bounded defaults");
+        for excessive in [
+            RepositoryInspectLimits {
+                max_total_bytes: 64 * 1024 * 1024 + 1,
+                ..limits.clone()
+            },
+            RepositoryInspectLimits {
+                max_file_bytes: 16 * 1024 * 1024 + 1,
+                ..limits.clone()
+            },
+            RepositoryInspectLimits {
+                max_archive_bytes: 64 * 1024 * 1024 + 1,
+                ..limits.clone()
+            },
+            RepositoryInspectLimits {
+                max_remote_work_bytes: 256 * 1024 * 1024 + 1,
+                ..limits.clone()
+            },
+        ] {
+            assert!(matches!(
+                validate_inspect_request(&request(excessive)),
+                Err(AcquisitionError::InvalidLimits)
+            ));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inspection_deadline_reserves_bounded_oci_lifecycle_time() {
+        let local = RepositoryInspectRequest {
+            source: RepositorySource::Local {
+                path: "/private/source".to_owned(),
+            },
+            selected_roots: Vec::new(),
+            limits: RepositoryInspectLimits::default(),
+        };
+        let remote = RepositoryInspectRequest {
+            source: RepositorySource::Https {
+                url: "https://github.com/example/project.git".to_owned(),
+                revision: "main".to_owned(),
+            },
+            selected_roots: Vec::new(),
+            limits: RepositoryInspectLimits::default(),
+        };
+        assert_eq!(inspection_deadline(&local), INSPECT_DEADLINE);
+        assert_eq!(
+            inspection_deadline(&remote),
+            Duration::from_secs(remote.limits.max_git_seconds + REMOTE_INSPECT_OVERHEAD_SECONDS)
+        );
+        assert!(CONNECTION_DEADLINE > inspection_deadline(&remote));
     }
 
     #[cfg(unix)]
