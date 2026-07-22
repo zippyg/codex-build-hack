@@ -1835,6 +1835,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn materialization_reads_multiple_objects_through_one_batch_session() {
         let temp = tempfile::tempdir().expect("tempdir");
